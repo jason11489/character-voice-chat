@@ -1,0 +1,14 @@
+# Python venv (MeloTTS, torch 등 — 수 GB, 재설치로 복원)
+tts-server/venv/
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 합성된 오디오 임시 파일
+*.aiff
+*.wav
+
+# macOS
+.DS_Store
