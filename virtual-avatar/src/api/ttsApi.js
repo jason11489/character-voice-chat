@@ -1,5 +1,16 @@
 import { getTtsApiBase } from "./llmApi.js";
 
+const speechCache = new Map();
+
+function getSpeechCacheKey(text, options) {
+  return JSON.stringify([
+    getTtsApiBase(),
+    text.trim(),
+    options.rate || 1,
+    options.voice || "",
+  ]);
+}
+
 export async function getTTSHealth() {
   const res = await fetch(`${getTtsApiBase()}/health`);
 
@@ -12,6 +23,23 @@ export async function getTTSHealth() {
 }
 
 export async function synthesizeSpeech(text, options = {}) {
+  const cacheKey = getSpeechCacheKey(text, options);
+  if (speechCache.has(cacheKey)) {
+    return await speechCache.get(cacheKey);
+  }
+
+  const request = fetchSpeech(text, options);
+  speechCache.set(cacheKey, request);
+
+  try {
+    return await request;
+  } catch (error) {
+    speechCache.delete(cacheKey);
+    throw error;
+  }
+}
+
+async function fetchSpeech(text, options) {
   const params = new URLSearchParams({
     text,
     rate: String(options.rate || 1),
@@ -28,4 +56,8 @@ export async function synthesizeSpeech(text, options = {}) {
   }
 
   return await res.blob();
+}
+
+export async function prefetchSpeech(text, options = {}) {
+  await synthesizeSpeech(text, options);
 }

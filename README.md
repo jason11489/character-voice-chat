@@ -16,10 +16,9 @@
 - **`virtual-avatar/`** — Vite + React + Three.js 기반 3D 홈솔루션비서 데모 프론트.
   좌측에는 캘린더/개인 데이터/가전 실행 상태를 보여주고, 우측에는 3D 캐릭터가 말풍선과 입 모션으로 응답한다.
 - **`tts-server/macos-tts-server.py`** — 맥용 TTS HTTP 서버. 정적 파일 서빙(`--serve-dir`) +
-  `GET /tts` 로 WAV 반환. 백엔드 3종:
+  `GET /tts` 로 WAV 반환. 백엔드 2종:
   - `say` (기본, 설치 0) — macOS 내장 음성. UI에서 한국어 음성 선택 가능.
   - `melo` — MeloTTS(한국어 신경망 TTS). 더 자연스러움. venv 필요.
-  - `qwen` — Qwen3-TTS(로컬, 한국어 화자 Sohee). pip + 모델 다운로드 필요.
 
 ## 실행
 
@@ -44,17 +43,18 @@ npm run dev
 ```bash
 # 최초 1회: venv 구성
 python3.11 -m venv tts-server/venv
-tts-server/venv/bin/pip install "git+https://github.com/myshell-ai/MeloTTS.git"
-tts-server/venv/bin/python -m unidic download           # 일본어 사전(import 의존성)
-tts-server/venv/bin/pip install python-mecab-ko          # 한국어 g2p용 MeCab
+tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
+sh tts-server/patch-melo-macos.sh
 
 # 실행 (반드시 venv 파이썬으로)
 tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo --port 8080 --serve-dir .
 ```
 
-> **macOS 함정**: 대소문자 비구분 파일시스템에서 일본어 `MeCab` 과 한국어 `mecab` 패키지가 충돌한다.
-> 한국어만 쓰면 `melo/text/japanese.py` 의 `import MeCab` / `_TAGGER` 를 옵셔널로 패치하고
-> `mecab-python3` 대신 `python-mecab-ko` 만 설치하면 된다. (Apple Silicon은 MPS로 문장당 ~1초)
+> **macOS 함정**: 대소문자 비구분 파일시스템에서 일본어 `MeCab`과 한국어 `mecab`이 충돌합니다.
+> `patch-melo-macos.sh`는 한국어 전용 실행을 위해 일본어 모듈의 자동 import만 제외합니다.
+>
+> Melo 백엔드의 기본 음색은
+> `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`입니다.
 
 #### melo + OpenVoiceV2 음색 변환 (선택)
 
@@ -69,27 +69,14 @@ base=https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main
 for f in converter/config.json converter/checkpoint.pth base_speakers/ses/kr.pth; do
   curl -sL -o "tts-server/checkpoints_v2/$f" "$base/$f"; done
 
-# 실행: --voice-convert 에 데모 화자(demo_speaker0/1/2) 또는 wav/mp3 경로
+# 다른 음색을 기본으로 지정할 때
 tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo \
-  --voice-convert demo_speaker0 --port 8080 --serve-dir .
+  --voice-convert "voice/스파이패밀리 아냐 목소리 대사 모음.mp3" \
+  --port 8080 --serve-dir .
 ```
 
 > 소스 SE 는 `kr.pth`, 타겟 SE 는 레퍼런스에서 추출(whisper 불필요). 변환기는 CPU 사용.
 > 문장당 melo(~0.5s) + 변환(~1.2s) 정도. 본인 목소리로 바꾸려면 `--voice-convert <녹음.wav>`.
-
-### 3) qwen 백엔드 (Qwen3-TTS, 로컬 추론)
-
-```bash
-# 최초 1회: 설치 (torch 포함, 수 GB)
-.venv/bin/pip install -U qwen-tts soundfile
-
-# 실행 (Apple Silicon이면 MPS 자동 선택). 최초 실행 시 모델 다운로드(수 GB).
-.venv/bin/python tts-server/macos-tts-server.py --backend qwen --port 8080 --serve-dir .
-```
-
-> 한국어 화자는 기본 `Sohee`. 다른 화자는 `--qwen-speaker <이름>`.
-> 디바이스 강제 지정은 `--device mps|cpu|cuda:0` (기본 `auto`). 모델 변경은 `--qwen-model`.
-> 참고: qwen 백엔드는 UI의 속도(rate) 조절을 지원하지 않는다.
 
 ### 접속
 
@@ -111,4 +98,3 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo \
 
 - MeloTTS: https://github.com/myshell-ai/MeloTTS
 - OpenVoiceV2: https://github.com/myshell-ai/OpenVoice (MIT)
-- Qwen3-TTS: https://github.com/QwenLM/Qwen3-TTS (Apache 2.0)
