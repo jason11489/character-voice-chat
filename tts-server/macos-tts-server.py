@@ -40,10 +40,10 @@ MELO_LOCK = threading.Lock()
 QWEN_TTS = None          # Qwen3-TTS 모델 (지연 로딩)
 QWEN_LOCK = threading.Lock()
 
-# OpenVoiceV2 음색 변환 (melo 백엔드 + --voice-convert 일 때만). MELO_LOCK 으로 직렬화.
+# OpenVoiceV2 음색 변환 (melo 백엔드). MELO_LOCK 으로 직렬화.
 OV_CONVERTER = None      # ToneColorConverter (지연 로딩)
 OV_SRC_SE = None         # melo KR 화자 임베딩 (kr.pth)
-OV_TGT_SE = None         # 레퍼런스에서 추출한 타겟 음색
+OV_TGT_CACHE = {}        # {레퍼런스 경로: 추출한 타겟 음색} — 음성별 SE 캐시
 
 MAX_TEXT = 600           # 한 번에 합성할 최대 글자 수(과부하 방지)
 
@@ -122,9 +122,31 @@ def resolve_reference(ref: str) -> str:
     raise FileNotFoundError(f"레퍼런스 음성을 찾을 수 없음: {ref}")
 
 
+def list_ov_voices():
+    """voice-dir 안의 mp3/wav 파일을 음색 변환용 음성 목록으로 반환(이름=파일명 stem)."""
+    vd = ARGS.voice_dir
+    out = []
+    if vd and os.path.isdir(vd):
+        for fn in sorted(os.listdir(vd)):
+            if fn.lower().endswith((".mp3", ".wav")):
+                out.append({"name": os.path.splitext(fn)[0], "lang": "ko"})
+    return out
+
+
+def resolve_ov_reference(voice: str) -> str:
+    """UI 가 보낸 voice(파일명 stem) 를 voice-dir 파일 경로로 해석.
+    못 찾으면 데모 이름/경로로 폴백."""
+    vd = ARGS.voice_dir
+    if vd and os.path.isdir(vd):
+        for fn in os.listdir(vd):
+            if os.path.splitext(fn)[0] == voice:
+                return os.path.join(vd, fn)
+    return resolve_reference(voice)
+
+
 def load_openvoice():
-    """OpenVoiceV2 변환기 + 소스/타겟 SE 로드. melo KR 출력을 레퍼런스 음색으로 변환."""
-    global OV_CONVERTER, OV_SRC_SE, OV_TGT_SE
+    """OpenVoiceV2 변환기 + 소스 SE 로드. 타겟 SE 는 음성별로 지연 추출/캐시."""
+    global OV_CONVERTER, OV_SRC_SE
     if OV_CONVERTER is not None:
         return
     import torch  # type: ignore
@@ -138,13 +160,22 @@ def load_openvoice():
     OV_SRC_SE = torch.load(
         os.path.join(ckpt, "base_speakers", "ses", "kr.pth"), map_location=dev
     )
-    ref_path = resolve_reference(ARGS.voice_convert)
-    OV_TGT_SE = conv.extract_se(ref_path)
     OV_CONVERTER = conv
-    print(f"OpenVoiceV2 변환 로드 완료 (reference={os.path.basename(ref_path)}, device={dev})")
+    print(f"OpenVoiceV2 변환기 로드 완료 (device={dev})")
 
 
-def synth_melo(text: str, rate: float) -> bytes:
+def get_tgt_se(ref_path: str):
+    """레퍼런스에서 타겟 음색 SE 추출(경로별 캐시). 최초 1회만 수 초 소요."""
+    key = os.path.realpath(ref_path)
+    se = OV_TGT_CACHE.get(key)
+    if se is None:
+        se = OV_CONVERTER.extract_se(ref_path)
+        OV_TGT_CACHE[key] = se
+        print(f"OpenVoiceV2 음색 추출: {os.path.basename(ref_path)}")
+    return se
+
+
+def synth_melo(text: str, rate: float, voice: str = "") -> bytes:
     with MELO_LOCK:
         load_melo()
         spk = list(MELO_SPEAKER.values())[0]
@@ -152,11 +183,17 @@ def synth_melo(text: str, rate: float) -> bytes:
             wav = os.path.join(d, "out.wav")
             # speed: 1.0 기준, UI rate 그대로 사용
             MELO_TTS.tts_to_file(text, spk, wav, speed=float(rate), quiet=True)
-            if ARGS.voice_convert:
+            # 음색 변환 레퍼런스: UI 가 voice 를 주면 그걸, 없으면 서버 기본(--voice-convert).
+            ref = None
+            if voice:
+                ref = resolve_ov_reference(voice)
+            elif ARGS.voice_convert:
+                ref = resolve_reference(ARGS.voice_convert)
+            if ref:
                 load_openvoice()
                 out = os.path.join(d, "conv.wav")
                 OV_CONVERTER.convert(
-                    audio_src_path=wav, src_se=OV_SRC_SE, tgt_se=OV_TGT_SE,
+                    audio_src_path=wav, src_se=OV_SRC_SE, tgt_se=get_tgt_se(ref),
                     output_path=out,
                 )
                 wav = out
@@ -217,7 +254,7 @@ def synthesize(text: str, voice: str, rate: float) -> bytes:
     if ARGS.backend == "qwen":
         return synth_qwen(text)
     if ARGS.backend == "melo":
-        return synth_melo(text, rate)
+        return synth_melo(text, rate, voice)
     return synth_say(text, voice or ARGS.voice, rate)
 
 
@@ -242,7 +279,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "backend": ARGS.backend, "voice": voice})
             return
         if parsed.path == "/voices":
-            self._send_json({"voices": list_say_voices()})
+            if ARGS.backend == "melo":
+                voices = list_ov_voices()       # 음색 변환용 캐릭터 음성(voice-dir)
+            elif ARGS.backend == "qwen":
+                voices = []
+            else:
+                voices = list_say_voices()
+            self._send_json({"voices": voices})
             return
         if parsed.path != "/tts":
             # /tts, /health, /voices 외의 경로는 정적 파일로 서빙(채팅 페이지 등).
@@ -337,8 +380,11 @@ def main():
     p.add_argument("--qwen-speaker", default="Sohee", help="qwen 화자 (한국어: Sohee)")
     p.add_argument("--qwen-language", default="Korean", help="qwen 언어")
     p.add_argument("--voice-convert", default=None,
-                   help="melo 백엔드 OpenVoiceV2 음색 변환 레퍼런스 "
-                        "(데모 이름 demo_speaker0/1/2 또는 wav/mp3 경로)")
+                   help="melo 백엔드 OpenVoiceV2 음색 변환 기본 레퍼런스 "
+                        "(UI 에서 음성 미선택 시 사용. 데모 이름 demo_speaker0/1/2 또는 wav/mp3 경로)")
+    p.add_argument("--voice-dir", default=os.path.join(HERE, "..", "voice"),
+                   help="melo 백엔드 음색 변환용 캐릭터 음성(mp3/wav) 디렉터리. "
+                        "여기 파일들이 UI 음성 드롭다운에 뜬다")
     p.add_argument("--serve-dir", default=None,
                    help="정적 파일 디렉터리(chat-ui.html 위치). 지정하면 페이지+TTS를 한 서버에서 제공")
     ARGS = p.parse_args()
@@ -358,10 +404,17 @@ def main():
         except Exception as e:
             print("⚠️ MeloTTS 로드 실패 → say 로 폴백:", e)
             ARGS.backend = "say"
-        if ARGS.backend == "melo" and ARGS.voice_convert:
-            print(f"OpenVoiceV2 음색 변환 활성화(reference={ARGS.voice_convert}). 미리 로드합니다...")
+        if ARGS.backend == "melo":
+            ov_voices = [v["name"] for v in list_ov_voices()]
+            if ov_voices:
+                print("OpenVoiceV2 음색 변환 가능 음성(UI 드롭다운):")
+                for n in ov_voices:
+                    print("   -", n)
             try:
-                load_openvoice()
+                load_openvoice()                       # 변환기 미리 로드
+                if ARGS.voice_convert:                 # 기본 레퍼런스 음색도 미리 추출
+                    print(f"기본 음색 미리 로드: {ARGS.voice_convert}")
+                    get_tgt_se(resolve_reference(ARGS.voice_convert))
             except Exception as e:
                 print("⚠️ OpenVoiceV2 로드 실패 → 변환 없이 melo 원본 사용:", e)
                 ARGS.voice_convert = None
