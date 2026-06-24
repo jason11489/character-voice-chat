@@ -644,8 +644,12 @@ async function loadServerVoices(backend) {
 }
 
 // 스트리밍 텍스트를 문장 단위로 잘라 TTS 큐에 넣는다 → 추론과 동시에 말함.
+// 신경망 TTS(qwen/melo)는 토막 텍스트에서 억양이 망가짐 → 문장 경계로 자르되
+// 누적 길이가 MIN_TTS_CHARS 미만이면 다음 문장과 묶어서 한 번에 합성한다.
+const MIN_TTS_CHARS = 30;
 function makeSentenceSplitter() {
-  let buf = "";
+  let buf = "";        // 아직 문장 경계가 안 온 미완성 꼬리
+  let pend = "";       // 경계는 지났지만 길이가 짧아 더 묶는 중인 조각
   const boundary = /[.!?。！？\n]/;
   return {
     push(delta) {
@@ -653,14 +657,15 @@ function makeSentenceSplitter() {
       let m;
       while ((m = boundary.exec(buf))) {
         const idx = m.index;
-        const piece = buf.slice(0, idx + 1);
+        pend += buf.slice(0, idx + 1);
         buf = buf.slice(idx + 1);
-        if (piece.trim().length >= 2) enqueueTts(piece);
+        if (pend.trim().length >= MIN_TTS_CHARS) { enqueueTts(pend); pend = ""; }
       }
     },
     flush() {
-      if (buf.trim()) enqueueTts(buf);
-      buf = "";
+      const tail = (pend + buf).trim();
+      if (tail) enqueueTts(tail);
+      pend = ""; buf = "";
     }
   };
 }

@@ -14,9 +14,10 @@
   문장 단위 분할, 서버 오디오 재생 파이프라인(순서 보장 + prefetch), **실제 음량(RMS) 기반 입싱크**,
   캐릭터 페르소나(시스템 프롬프트) 편집 UI 포함.
 - **`tts-server/macos-tts-server.py`** — 맥용 TTS HTTP 서버. 정적 파일 서빙(`--serve-dir`) +
-  `GET /tts` 로 WAV 반환. 백엔드 2종:
+  `GET /tts` 로 WAV 반환. 백엔드 3종:
   - `say` (기본, 설치 0) — macOS 내장 음성. UI에서 한국어 음성 선택 가능.
   - `melo` — MeloTTS(한국어 신경망 TTS). 더 자연스러움. venv 필요.
+  - `qwen` — Qwen3-TTS(로컬, 한국어 화자 Sohee). pip + 모델 다운로드 필요.
 
 ## 실행
 
@@ -43,6 +44,41 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo --port 
 > 한국어만 쓰면 `melo/text/japanese.py` 의 `import MeCab` / `_TAGGER` 를 옵셔널로 패치하고
 > `mecab-python3` 대신 `python-mecab-ko` 만 설치하면 된다. (Apple Silicon은 MPS로 문장당 ~1초)
 
+#### melo + OpenVoiceV2 음색 변환 (선택)
+
+melo(한국어 화자 1명 고정)의 출력을 레퍼런스 화자의 음색으로 변환한다.
+
+```bash
+# 최초 1회: OpenVoice repo + 체크포인트 (tts-server/ 아래, gitignore)
+git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git tts-server/openvoice-src
+tts-server/venv/bin/python -m pip install --no-deps wavmark==0.0.3
+mkdir -p tts-server/checkpoints_v2/converter tts-server/checkpoints_v2/base_speakers/ses
+base=https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main
+for f in converter/config.json converter/checkpoint.pth base_speakers/ses/kr.pth; do
+  curl -sL -o "tts-server/checkpoints_v2/$f" "$base/$f"; done
+
+# 실행: --voice-convert 에 데모 화자(demo_speaker0/1/2) 또는 wav/mp3 경로
+tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo \
+  --voice-convert demo_speaker0 --port 8080 --serve-dir .
+```
+
+> 소스 SE 는 `kr.pth`, 타겟 SE 는 레퍼런스에서 추출(whisper 불필요). 변환기는 CPU 사용.
+> 문장당 melo(~0.5s) + 변환(~1.2s) 정도. 본인 목소리로 바꾸려면 `--voice-convert <녹음.wav>`.
+
+### 3) qwen 백엔드 (Qwen3-TTS, 로컬 추론)
+
+```bash
+# 최초 1회: 설치 (torch 포함, 수 GB)
+.venv/bin/pip install -U qwen-tts soundfile
+
+# 실행 (Apple Silicon이면 MPS 자동 선택). 최초 실행 시 모델 다운로드(수 GB).
+.venv/bin/python tts-server/macos-tts-server.py --backend qwen --port 8080 --serve-dir .
+```
+
+> 한국어 화자는 기본 `Sohee`. 다른 화자는 `--qwen-speaker <이름>`.
+> 디바이스 강제 지정은 `--device mps|cpu|cuda:0` (기본 `auto`). 모델 변경은 `--qwen-model`.
+> 참고: qwen 백엔드는 UI의 속도(rate) 조절을 지원하지 않는다.
+
 ### 접속
 
 - 같은 맥: `http://localhost:8080/chat-ui.html`
@@ -62,3 +98,5 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo --port 
 ## 라이선스 / 참고
 
 - MeloTTS: https://github.com/myshell-ai/MeloTTS
+- OpenVoiceV2: https://github.com/myshell-ai/OpenVoice (MIT)
+- Qwen3-TTS: https://github.com/QwenLM/Qwen3-TTS (Apache 2.0)
