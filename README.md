@@ -13,6 +13,8 @@
 - **`chat-ui.html`** — 정적 채팅 페이지. 토큰 SSE 스트리밍, 캐릭터 애니메이션(눈 깜빡임/입 모션),
   문장 단위 분할, 서버 오디오 재생 파이프라인(순서 보장 + prefetch), **실제 음량(RMS) 기반 입싱크**,
   캐릭터 페르소나(시스템 프롬프트) 편집 UI 포함.
+- **`virtual-avatar/`** — Vite + React + Three.js 기반 3D 홈솔루션비서 데모 프론트.
+  좌측에는 캘린더/개인 데이터/가전 실행 상태를 보여주고, 우측에는 3D 캐릭터가 말풍선과 입 모션으로 응답한다.
 - **`tts-server/macos-tts-server.py`** — 맥용 TTS HTTP 서버. 정적 파일 서빙(`--serve-dir`) +
   `GET /tts` 로 WAV 반환. 백엔드 3종:
   - `say` (기본, 설치 0) — macOS 내장 음성. UI에서 한국어 음성 선택 가능.
@@ -26,6 +28,16 @@
 ```bash
 python3 tts-server/macos-tts-server.py --backend say --voice Yuna --port 8080 --serve-dir .
 ```
+
+### 1-1) 3D 홈솔루션비서 프론트
+
+```bash
+cd virtual-avatar
+npm install
+npm run dev
+```
+
+접속: `http://localhost:5173/`
 
 ### 2) melo 백엔드 (더 자연스러운 음성)
 

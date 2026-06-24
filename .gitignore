@@ -17,3 +17,7 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Vite frontend
+virtual-avatar/node_modules/
+virtual-avatar/dist/

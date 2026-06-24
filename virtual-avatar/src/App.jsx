@@ -1,0 +1,357 @@
+import React, { useRef, useState } from "react";
+import AvatarScene from "./avatar/AvatarScene.jsx";
+import { getTTSHealth, synthesizeSpeech } from "./api/ttsApi.js";
+import SpeechBubble from "./ui/SpeechBubble.jsx";
+import { demoEvents } from "./mock/demoEvents.js";
+
+const avatarPresets = [
+  {
+    label: "먼저 말걸기",
+    emotion: "happy",
+    action: "wave",
+    text: "왔어? 오늘 데이터 보니까 바로 쉬고 싶을 것 같아서 집을 먼저 맞춰두고 있었어.",
+  },
+  {
+    label: "설명",
+    emotion: "thinking",
+    action: "explain",
+    text: "캘린더, 위치, 날씨, 결제 내역을 같이 보고 지금 필요한 홈솔루션을 고르는 중이야.",
+  },
+  {
+    label: "밤 모드",
+    emotion: "sleepy",
+    action: "idle",
+    text: "밤이 늦었으니까 말은 짧게 하고, 소리 나는 기기는 조용하게 낮춰둘게.",
+  },
+];
+
+function estimateSpeechMs(text) {
+  return Math.max(2600, text.length * 88);
+}
+
+function pickScenario(prompt) {
+  const text = prompt.replace(/\s/g, "");
+
+  if (text.includes("운동") || text.includes("헬스") || text.includes("샤워")) {
+    return demoEvents.find((demo) => demo.id === "workout");
+  }
+
+  if (text.includes("조용") || text.includes("발표") || text.includes("회의")) {
+    return demoEvents.find((demo) => demo.id === "quiet-mode");
+  }
+
+  return demoEvents.find((demo) => demo.id === "company-dinner");
+}
+
+export default function App() {
+  const [activeDemo, setActiveDemo] = useState(demoEvents[0]);
+  const [userText, setUserText] = useState(demoEvents[0].userText);
+  const [avatarText, setAvatarText] = useState(demoEvents[0].assistant.text);
+  const [emotion, setEmotion] = useState(demoEvents[0].assistant.emotion);
+  const [action, setAction] = useState("idle");
+  const [speaking, setSpeaking] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [ttsState, setTtsState] = useState("idle");
+  const speakingTimerRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioUrlRef = useRef("");
+  const utteranceRef = useRef(null);
+
+  function stopAudio() {
+    if (window.speechSynthesis && utteranceRef.current) {
+      utteranceRef.current.onstart = null;
+      utteranceRef.current.onend = null;
+      utteranceRef.current.onerror = null;
+      window.speechSynthesis.cancel();
+      utteranceRef.current = null;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.onplay = null;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = "";
+    }
+  }
+
+  function stopSpeakingAfter(ms) {
+    if (speakingTimerRef.current) {
+      window.clearTimeout(speakingTimerRef.current);
+    }
+
+    speakingTimerRef.current = window.setTimeout(() => {
+      setSpeaking(false);
+      setAction("idle");
+    }, ms);
+  }
+
+  function playBrowserTTS(text, fallbackMs) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      setTtsState("fallback");
+      stopSpeakingAfter(fallbackMs);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    const koreanVoice = voices.find((voice) => voice.lang?.toLowerCase().startsWith("ko"));
+
+    if (koreanVoice) {
+      utterance.voice = koreanVoice;
+    }
+
+    utterance.lang = "ko-KR";
+    utterance.rate = 1.02;
+    utterance.pitch = 1.16;
+    utterance.volume = 1;
+    utteranceRef.current = utterance;
+
+    utterance.onstart = () => {
+      setTtsState(koreanVoice ? "browser-ko" : "browser-ko-requested");
+      setSpeaking(true);
+      if (speakingTimerRef.current) {
+        window.clearTimeout(speakingTimerRef.current);
+        speakingTimerRef.current = null;
+      }
+      stopSpeakingAfter(fallbackMs + 1200);
+    };
+
+    utterance.onend = () => {
+      if (speakingTimerRef.current) {
+        window.clearTimeout(speakingTimerRef.current);
+        speakingTimerRef.current = null;
+      }
+      setTtsState("done");
+      setSpeaking(false);
+      setAction("idle");
+      utteranceRef.current = null;
+    };
+
+    utterance.onerror = () => {
+      setTtsState("fallback");
+      utteranceRef.current = null;
+      stopSpeakingAfter(fallbackMs);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function playTTS(text, fallbackMs) {
+    stopAudio();
+    setTtsState("loading");
+
+    try {
+      const health = await getTTSHealth();
+
+      if (health.provider !== "qwen") {
+        playBrowserTTS(text, fallbackMs);
+        return;
+      }
+
+      const blob = await synthesizeSpeech(text);
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audioUrlRef.current = url;
+
+      audio.onplay = () => {
+        setTtsState("playing");
+        setSpeaking(true);
+        if (speakingTimerRef.current) {
+          window.clearTimeout(speakingTimerRef.current);
+          speakingTimerRef.current = null;
+        }
+      };
+
+      audio.onended = () => {
+        setTtsState("done");
+        setSpeaking(false);
+        setAction("idle");
+        audioRef.current = null;
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = "";
+        }
+      };
+
+      audio.onerror = () => {
+        setTtsState("error");
+        stopSpeakingAfter(fallbackMs);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.info("TTS unavailable. Falling back to browser/timer lip sync.", error);
+      setTtsState("fallback");
+      stopSpeakingAfter(fallbackMs);
+    }
+  }
+
+  function speak(result) {
+    if (speakingTimerRef.current) {
+      window.clearTimeout(speakingTimerRef.current);
+    }
+    stopAudio();
+
+    setAvatarText(result.text);
+    setEmotion(result.emotion);
+    setAction(result.action);
+    setSpeaking(true);
+
+    const estimatedMs = estimateSpeechMs(result.text);
+    stopSpeakingAfter(estimatedMs);
+    playTTS(result.text, estimatedMs);
+  }
+
+  async function runPrompt(text) {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+
+    setLoading(true);
+    setErrorText("");
+    setEmotion("thinking");
+    setAction("thinking");
+    setSpeaking(false);
+    setAvatarText("데이터를 확인하고 홈솔루션 루틴을 고르는 중이야...");
+
+    window.setTimeout(() => {
+      const scenario = pickScenario(trimmed);
+      setActiveDemo(scenario);
+      speak(scenario.assistant);
+      setLoading(false);
+    }, 420);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    runPrompt(userText);
+  }
+
+  function applyDemo(demo) {
+    setActiveDemo(demo);
+    setUserText(demo.userText);
+    speak(demo.assistant);
+  }
+
+  function previewAvatar(preset) {
+    speak(preset);
+  }
+
+  return (
+    <div className="app-shell">
+      <section className="demo-panel" aria-label="사용 데이터와 스케줄러">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Home Solution Assistant</p>
+            <h1>{activeDemo.sceneTitle}</h1>
+          </div>
+          <div className="time-badge">{activeDemo.now}</div>
+        </div>
+
+        <form className="prompt-row" onSubmit={handleSubmit}>
+          <input
+            className="input-box"
+            value={userText}
+            onChange={(e) => setUserText(e.target.value)}
+            placeholder="예: 나 집에 왔어"
+          />
+          <button className="primary-button" type="submit" disabled={loading}>
+            {loading ? "분석 중" : "실행"}
+          </button>
+        </form>
+
+        <div className="quick-actions">
+          {demoEvents.map((demo) => (
+            <button
+              className={demo.id === activeDemo.id ? "chip is-active" : "chip"}
+              key={demo.id}
+              onClick={() => applyDemo(demo)}
+            >
+              {demo.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="section-block">
+          <div className="section-title">캘린더 · 스케줄러</div>
+          <div className="calendar-list">
+            {activeDemo.calendar.map((event) => (
+              <div className="calendar-item" key={`${event.time}-${event.title}`}>
+                <div className="calendar-time">{event.time}</div>
+                <div>
+                  <div className="calendar-title">{event.title}</div>
+                  <div className="calendar-meta">{event.meta}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="section-block">
+          <div className="section-title">사용되는 데이터</div>
+          <div className="data-grid">
+            {activeDemo.data.map((item) => (
+              <div className="data-tile" key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="section-block">
+          <div className="section-title">홈솔루션 실행</div>
+          <div className="device-list">
+            {activeDemo.devices.map((device) => (
+              <div className="device-row" key={device.name}>
+                <span>{device.name}</span>
+                <strong>{device.state}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flow-row">
+          {activeDemo.flow.map((step) => (
+            <span key={step}>{step}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="avatar-stage" aria-label="3D 홈솔루션비서">
+        <AvatarScene emotion={emotion} action={action} speaking={speaking} />
+
+        <div className="avatar-toolbar">
+          {avatarPresets.map((preset) => (
+            <button className="chip accent-chip" key={preset.label} onClick={() => previewAvatar(preset)}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="assistant-label">
+          <span>3D 캐릭터</span>
+          <strong>홈솔루션비서</strong>
+        </div>
+      </section>
+
+      <SpeechBubble text={avatarText} />
+
+      <div className="status-pill">
+        mock LLM · TTS: {ttsState} · emotion: {emotion} · action: {action} · speaking: {String(speaking)}
+      </div>
+
+      {errorText && <div className="error-box">{errorText}</div>}
+    </div>
+  );
+}
