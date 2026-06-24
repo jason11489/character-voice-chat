@@ -1,7 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
 import { askPiLLM, getApiBase } from "./api/llmApi.js";
-import { getTTSHealth, synthesizeSpeech } from "./api/ttsApi.js";
+import { getTTSHealth, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import SpeechBubble from "./ui/SpeechBubble.jsx";
 import { demoEvents } from "./mock/demoEvents.js";
 
@@ -83,6 +83,36 @@ function normalizeLLMResult(result, fallback) {
   };
 }
 
+function createSentenceSplitter(onSentence) {
+  let buffer = "";
+  const boundary = /[.!?。！？\n]/;
+
+  return {
+    push(delta) {
+      buffer += delta;
+      let match;
+
+      while ((match = boundary.exec(buffer))) {
+        const sentence = buffer.slice(0, match.index + 1).trim();
+        buffer = buffer.slice(match.index + 1);
+        if (sentence) onSentence(sentence);
+      }
+    },
+    flush() {
+      const tail = buffer.trim();
+      buffer = "";
+      if (tail) onSentence(tail);
+    },
+  };
+}
+
+function splitSentences(text) {
+  return text
+    .match(/[^.!?。！？\n]+[.!?。！？]?/g)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) || [];
+}
+
 export default function App() {
   const [selectedAvatarId, setSelectedAvatarId] = useState(getInitialAvatarId);
   const [activeDemo, setActiveDemo] = useState(demoEvents[0]);
@@ -98,9 +128,52 @@ export default function App() {
   const speakingTimerRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
+  const audioDoneRef = useRef(null);
   const utteranceRef = useRef(null);
+  const ttsQueueRef = useRef([]);
+  const ttsPumpRef = useRef(null);
+  const ttsGenerationRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fixedTexts = [
+      demoEvents[0].assistant.text,
+      avatarPresets[0].text,
+      ...demoEvents.slice(1).map((demo) => demo.assistant.text),
+      ...avatarPresets.slice(1).map((preset) => preset.text),
+    ];
+
+    async function prefetchFixedSpeech() {
+      try {
+        await getTTSHealth();
+        const sentenceGroups = fixedTexts.map(splitSentences);
+
+        for (const sentences of sentenceGroups) {
+          if (cancelled) return;
+          if (sentences[0]) await prefetchSpeech(sentences[0]);
+        }
+
+        for (const sentences of sentenceGroups) {
+          for (const sentence of sentences.slice(1)) {
+            if (cancelled) return;
+            await prefetchSpeech(sentence);
+          }
+        }
+      } catch (error) {
+        console.info("TTS prefetch skipped.", error);
+      }
+    }
+
+    prefetchFixedSpeech();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function stopAudio() {
+    ttsGenerationRef.current += 1;
+    ttsQueueRef.current = [];
+
     if (window.speechSynthesis && utteranceRef.current) {
       utteranceRef.current.onstart = null;
       utteranceRef.current.onend = null;
@@ -115,6 +188,7 @@ export default function App() {
       audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current.src = "";
+      audioDoneRef.current?.();
       audioRef.current = null;
     }
 
@@ -122,6 +196,104 @@ export default function App() {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = "";
     }
+  }
+
+  function playAudioBlob(blob, generation) {
+    return new Promise((resolve, reject) => {
+      if (generation !== ttsGenerationRef.current) {
+        resolve();
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audioUrlRef.current = url;
+      let settled = false;
+
+      const cleanup = () => {
+        if (audioRef.current === audio) audioRef.current = null;
+        if (audioUrlRef.current === url) audioUrlRef.current = "";
+        URL.revokeObjectURL(url);
+      };
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        if (audioDoneRef.current === finish) audioDoneRef.current = null;
+        cleanup();
+        if (error) reject(error);
+        else resolve();
+      };
+      audioDoneRef.current = finish;
+
+      audio.onplay = () => {
+        setTtsState("streaming");
+        setSpeaking(true);
+      };
+      audio.onended = () => finish();
+      audio.onerror = () => finish(new Error("TTS audio playback failed"));
+
+      audio.play().catch((error) => finish(error));
+    });
+  }
+
+  async function drainTTSQueue(generation) {
+    if (ttsPumpRef.current !== null) return;
+    ttsPumpRef.current = generation;
+    let pendingAudio = null;
+
+    try {
+      await getTTSHealth();
+
+      while (
+        generation === ttsGenerationRef.current
+        && (pendingAudio || ttsQueueRef.current.length > 0)
+      ) {
+        const blob = pendingAudio
+          ? await pendingAudio
+          : await synthesizeSpeech(ttsQueueRef.current.shift());
+        pendingAudio = null;
+
+        if (generation !== ttsGenerationRef.current) break;
+        if (ttsQueueRef.current.length > 0) {
+          pendingAudio = synthesizeSpeech(ttsQueueRef.current.shift());
+        }
+
+        await playAudioBlob(blob, generation);
+      }
+
+      if (generation === ttsGenerationRef.current) {
+        setTtsState("done");
+        setSpeaking(false);
+        setAction("idle");
+      }
+    } catch (error) {
+      console.info("Streaming TTS unavailable.", error);
+      if (generation === ttsGenerationRef.current) {
+        const remaining = ttsQueueRef.current.join(" ");
+        ttsQueueRef.current = [];
+        if (remaining) {
+          playBrowserTTS(remaining, estimateSpeechMs(remaining));
+        } else {
+          setTtsState("fallback");
+        }
+      }
+    } finally {
+      if (ttsPumpRef.current === generation) {
+        ttsPumpRef.current = null;
+      }
+      if (ttsQueueRef.current.length > 0) {
+        drainTTSQueue(ttsGenerationRef.current);
+      }
+    }
+  }
+
+  function enqueueTTS(sentence, generation) {
+    const cleaned = sentence.replace(/\s+/g, " ").trim();
+    if (!cleaned || generation !== ttsGenerationRef.current) return;
+    ttsQueueRef.current.push(cleaned);
+    setTtsState("synthesizing");
+    drainTTSQueue(generation);
   }
 
   function stopSpeakingAfter(ms) {
@@ -245,9 +417,13 @@ export default function App() {
     setAction(result.action);
     setSpeaking(true);
 
-    const estimatedMs = estimateSpeechMs(result.text);
-    stopSpeakingAfter(estimatedMs);
-    playTTS(result.text, estimatedMs);
+    const generation = ttsGenerationRef.current;
+    const sentences = splitSentences(result.text);
+    if (sentences.length === 0) {
+      stopSpeakingAfter(estimateSpeechMs(result.text));
+      return;
+    }
+    sentences.forEach((sentence) => enqueueTTS(sentence, generation));
   }
 
   async function runPrompt(text) {
@@ -261,19 +437,43 @@ export default function App() {
     setAction("thinking");
     setSpeaking(false);
     setAvatarText("음... 지금 집 상태랑 일정을 같이 맞춰보는 중이야.");
+    stopAudio();
+    const ttsGeneration = ttsGenerationRef.current;
+    let streamedText = "";
+    let queuedSentence = false;
+    const sentenceSplitter = createSentenceSplitter((sentence) => {
+      queuedSentence = true;
+      enqueueTTS(sentence, ttsGeneration);
+    });
 
     const scenario = pickScenario(trimmed);
     setActiveDemo(scenario);
 
     try {
-      const apiResult = await askPiLLM(trimmed, buildScenarioContext(scenario));
+      const apiResult = await askPiLLM(trimmed, buildScenarioContext(scenario), {
+        onTextDelta(delta, fullText) {
+          streamedText = fullText;
+          setAvatarText(fullText);
+          sentenceSplitter.push(delta);
+        },
+      });
+      sentenceSplitter.flush();
       setLlmState("api");
-      speak(normalizeLLMResult(apiResult, scenario.assistant));
+      const result = normalizeLLMResult(apiResult, scenario.assistant);
+      setAvatarText(result.text);
+      setEmotion(result.emotion);
+      setAction(result.action);
+      if (!queuedSentence) {
+        enqueueTTS(result.text, ttsGeneration);
+      }
     } catch (error) {
+      sentenceSplitter.flush();
       console.info("LLM API unavailable. Falling back to demo scenario.", error);
       setLlmState("mock-fallback");
       setErrorText(`LLM API fallback: ${error.message}`);
-      speak(scenario.assistant);
+      if (!streamedText) {
+        speak(scenario.assistant);
+      }
     } finally {
       setLoading(false);
     }

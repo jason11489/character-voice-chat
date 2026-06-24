@@ -139,7 +139,43 @@ function sanitizeResponse(data) {
   };
 }
 
-async function readStreamingChatResponse(res) {
+function extractPartialJsonText(raw) {
+  const match = /"text"\s*:\s*"/g.exec(raw);
+  if (!match) return "";
+
+  let result = "";
+  let escaped = false;
+
+  for (let index = match.index + match[0].length; index < raw.length; index += 1) {
+    const char = raw[index];
+
+    if (!escaped) {
+      if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        break;
+      } else {
+        result += char;
+      }
+      continue;
+    }
+
+    if (char === "u") {
+      const hex = raw.slice(index + 1, index + 5);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) break;
+      result += String.fromCharCode(parseInt(hex, 16));
+      index += 4;
+    } else {
+      const escapes = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" };
+      result += escapes[char] ?? char;
+    }
+    escaped = false;
+  }
+
+  return result;
+}
+
+async function readStreamingChatResponse(res, onTextDelta) {
   const reader = res.body?.getReader();
   if (!reader) {
     throw new Error("Streaming response body is not readable");
@@ -148,6 +184,7 @@ async function readStreamingChatResponse(res) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
+  let emittedText = "";
 
   while (true) {
     const { value, done } = await reader.read();
@@ -178,6 +215,11 @@ async function readStreamingChatResponse(res) {
       const deltaText = normalizeContentText(delta?.content || delta?.reasoning_content || "");
       if (deltaText) {
         content += deltaText;
+        const partialText = extractPartialJsonText(content);
+        if (partialText.length > emittedText.length) {
+          onTextDelta?.(partialText.slice(emittedText.length), partialText);
+          emittedText = partialText;
+        }
       }
     }
 
@@ -189,7 +231,7 @@ async function readStreamingChatResponse(res) {
   return content.trim();
 }
 
-async function callOpenAICompatible(userText, context) {
+async function callOpenAICompatible(userText, context, options = {}) {
   const apiBase = getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
   const model = import.meta.env.VITE_LLM_MODEL || "distributed-llama";
   const useStreaming = String(import.meta.env.VITE_LLM_STREAM || "true").toLowerCase() === "true";
@@ -217,7 +259,7 @@ async function callOpenAICompatible(userText, context) {
   const contentType = res.headers.get("content-type") || "";
   const responseJson = contentType.includes("application/json") ? await res.json() : null;
   const rawText = contentType.includes("text/event-stream")
-    ? await readStreamingChatResponse(res)
+    ? await readStreamingChatResponse(res, options.onTextDelta)
     : normalizeContentText(responseJson?.choices?.[0]?.message?.content || "");
 
   try {
@@ -230,8 +272,8 @@ async function callOpenAICompatible(userText, context) {
   }
 }
 
-export async function askPiLLM(userText, context = {}) {
-  return await callOpenAICompatible(userText, context);
+export async function askPiLLM(userText, context = {}, options = {}) {
+  return await callOpenAICompatible(userText, context, options);
 }
 
 export function getApiBase() {

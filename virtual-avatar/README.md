@@ -19,7 +19,11 @@ VITE_LLM_STREAM=true
 VITE_TTS_API_BASE=http://localhost:8080
 ```
 
-프론트는 라즈베리파이의 `POST /v1/chat/completions`를 `stream: true`로 호출하고, SSE `data:` 라인을 이어붙여 응답을 만듭니다. 응답에 JSON 외 텍스트가 섞여도 최대한 정리해서 표시합니다.
+프론트는 라즈베리파이의 `POST /v1/chat/completions`를 `stream: true`로 호출합니다.
+SSE에서 AvatarResponse JSON의 `text` 값을 점진적으로 추출하고, 문장이 완성되는 즉시 TTS
+큐에 넣습니다. 다음 문장은 현재 음성이 재생되는 동안 미리 합성해 문장 사이의 공백을 줄입니다.
+데모 버튼처럼 내용이 고정된 문장은 앱 로딩 후 백그라운드에서 미리 합성하고 메모리에 캐시해,
+준비가 끝난 뒤에는 버튼을 누르자마자 재생합니다.
 
 TTS는 맥의 `tts-server/macos-tts-server.py`가 제공하는 `GET /health`와
 `GET /tts?text=...`를 사용합니다. LLM과 TTS는 서로 다른 서버입니다.
