@@ -21,3 +21,8 @@ __pycache__/
 # Vite frontend
 virtual-avatar/node_modules/
 virtual-avatar/dist/
+
+# Pi LLM server local envs
+pi-llm-server/.venv/
+pi-llm-server/.venv311/
+pi-llm-server/.env

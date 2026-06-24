@@ -26,8 +26,28 @@ const avatarPresets = [
   },
 ];
 
+const avatarModels = [
+  {
+    id: "round",
+    label: "동글이 캐릭터",
+    name: "홈솔루션비서",
+    modelPath: "/models/untitled-colored.glb",
+  },
+  {
+    id: "human",
+    label: "사람 캐릭터",
+    name: "휴먼비서",
+    modelPath: "/models/human-cute.glb",
+  },
+];
+
 function estimateSpeechMs(text) {
   return Math.max(2600, text.length * 88);
+}
+
+function getInitialAvatarId() {
+  if (typeof window === "undefined") return "round";
+  return new URLSearchParams(window.location.search).get("avatar") === "human" ? "human" : "round";
 }
 
 function pickScenario(prompt) {
@@ -64,6 +84,7 @@ function normalizeLLMResult(result, fallback) {
 }
 
 export default function App() {
+  const [selectedAvatarId, setSelectedAvatarId] = useState(getInitialAvatarId);
   const [activeDemo, setActiveDemo] = useState(demoEvents[0]);
   const [userText, setUserText] = useState(demoEvents[0].userText);
   const [avatarText, setAvatarText] = useState(demoEvents[0].assistant.text);
@@ -244,7 +265,7 @@ export default function App() {
     setEmotion("thinking");
     setAction("thinking");
     setSpeaking(false);
-    setAvatarText("API 서버에 사용자 데이터와 상황을 보내고 응답을 기다리는 중이야...");
+    setAvatarText("음... 지금 집 상태랑 일정을 같이 맞춰보는 중이야.");
 
     const scenario = pickScenario(trimmed);
     setActiveDemo(scenario);
@@ -277,6 +298,8 @@ export default function App() {
   function previewAvatar(preset) {
     speak(preset);
   }
+
+  const selectedAvatar = avatarModels.find((model) => model.id === selectedAvatarId) || avatarModels[0];
 
   return (
     <div className="app-shell">
@@ -360,9 +383,18 @@ export default function App() {
       </section>
 
       <section className="avatar-stage" aria-label="3D 홈솔루션비서">
-        <AvatarScene emotion={emotion} action={action} speaking={speaking} />
+        <AvatarScene emotion={emotion} action={action} speaking={speaking} modelPath={selectedAvatar.modelPath} />
 
         <div className="avatar-toolbar">
+          {avatarModels.map((model) => (
+            <button
+              className={model.id === selectedAvatar.id ? "chip is-active" : "chip"}
+              key={model.id}
+              onClick={() => setSelectedAvatarId(model.id)}
+            >
+              {model.label}
+            </button>
+          ))}
           {avatarPresets.map((preset) => (
             <button className="chip accent-chip" key={preset.label} onClick={() => previewAvatar(preset)}>
               {preset.label}
@@ -372,7 +404,7 @@ export default function App() {
 
         <div className="assistant-label">
           <span>3D 캐릭터</span>
-          <strong>홈솔루션비서</strong>
+          <strong>{selectedAvatar.name}</strong>
         </div>
       </section>
 

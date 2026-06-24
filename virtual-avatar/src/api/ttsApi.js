@@ -1,7 +1,7 @@
-import { getApiBase } from "./llmApi.js";
+import { getTtsApiBase } from "./llmApi.js";
 
 export async function getTTSHealth() {
-  const res = await fetch(`${getApiBase()}/tts/health`);
+  const res = await fetch(`${getTtsApiBase()}/tts/health`);
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
@@ -12,7 +12,7 @@ export async function getTTSHealth() {
 }
 
 export async function synthesizeSpeech(text, options = {}) {
-  const res = await fetch(`${getApiBase()}/tts`, {
+  const res = await fetch(`${getTtsApiBase()}/tts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

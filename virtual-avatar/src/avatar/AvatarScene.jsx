@@ -39,6 +39,8 @@ function prepareGLBAvatar(model) {
     rightWing: byName.RightWing,
     leftEye: byName.LeftEye,
     rightEye: byName.RightEye,
+    nose: byName.Nose,
+    mouth: byName.Mouth,
     leftCheek: byName.LeftCheek,
     rightCheek: byName.RightCheek,
     topFeatherLeft: byName.TopFeatherLeft,
@@ -89,6 +91,13 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
     if (parts.body) {
       parts.body.scale.y *= 1 + open * 0.012;
     }
+    if (parts.mouth && !parts.lowerBeak) {
+      parts.mouth.position.y -= open * 0.018;
+      parts.mouth.scale.y *= 1 + open * 0.9;
+      if (parts.nose) {
+        parts.nose.scale.y *= 1 + open * 0.04;
+      }
+    }
   }
 
   if (emotion === "happy" || emotion === "excited") {
@@ -99,6 +108,10 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
     if (parts.leftCheek && parts.rightCheek) {
       parts.leftCheek.scale.x *= 1.14;
       parts.rightCheek.scale.x *= 1.14;
+    }
+    if (parts.mouth) {
+      parts.mouth.scale.x *= 1.18;
+      parts.mouth.scale.y *= 1.12;
     }
   }
 
@@ -135,7 +148,7 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
   }
 }
 
-export default function AvatarScene({ emotion, action, speaking }) {
+export default function AvatarScene({ emotion, action, speaking, modelPath = "/models/untitled-colored.glb" }) {
   const containerRef = useRef(null);
   const vrmRef = useRef(null);
   const glbRef = useRef(null);
@@ -149,6 +162,7 @@ export default function AvatarScene({ emotion, action, speaking }) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    let disposed = false;
 
     const scene = new THREE.Scene();
     scene.background = null;
@@ -206,9 +220,13 @@ export default function AvatarScene({ emotion, action, speaking }) {
     fallbackRef.current = createFallbackMascot(scene);
 
     loadGLB(
-      "/models/untitled-colored.glb",
+      modelPath,
       scene,
       (model) => {
+        if (disposed) {
+          scene.remove(model);
+          return;
+        }
         glbRef.current = model;
         model.scale.setScalar(0.9);
         model.position.y = 0.28;
@@ -231,6 +249,10 @@ export default function AvatarScene({ emotion, action, speaking }) {
       "/models/momo.vrm",
       scene,
       (vrm) => {
+        if (disposed) {
+          scene.remove(vrm.scene);
+          return;
+        }
         vrmRef.current = vrm;
         const glb = glbRef.current;
         if (glb?.parent) {
@@ -292,6 +314,7 @@ export default function AvatarScene({ emotion, action, speaking }) {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(frameId);
       window.removeEventListener("resize", handleResize);
       container.removeChild(renderer.domElement);
@@ -299,7 +322,7 @@ export default function AvatarScene({ emotion, action, speaking }) {
       floorGeometry.dispose();
       floorMaterial.dispose();
     };
-  }, []);
+  }, [modelPath]);
 
   return <div ref={containerRef} className="avatar-layer" />;
 }
