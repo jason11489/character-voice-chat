@@ -1,114 +1,89 @@
 # 캐릭터 음성 채팅 (Character Voice Chat)
 
-브라우저에서 캐릭터(EMO 스타일 SVG 로봇)와 **음성으로 대화**하는 채팅 UI.
-글자 생성(LLM 추론)은 별도 서버에, 음성 합성(TTS)은 맥에서 처리한다.
+3D 캐릭터와 **음성으로 대화**하는 앱. 글자 생성(LLM)은 외부 서버에서, 음성 합성(TTS)은 맥에서 처리한다.
 
-```
-[브라우저] --(페이지 + TTS, 같은 오리진)--> [맥 TTS 서버 :8080]
-     \------(LLM 토큰 스트리밍, SSE)--------> [LLM API :9999]
-```
+## 서버 3개만 기억하면 된다
 
-## 구성
+| # | 역할 | 무엇 | 주소 |
+|---|------|------|------|
+| ① | **LLM** (글자 생성) | 외부 서버 (라즈베리파이 등). 이미 떠 있다고 가정 | `http://<LLM_IP>:9999` |
+| ② | **TTS** (음성 합성) | 맥의 `tts-server/macos-tts-server.py` | `http://localhost:8080` |
+| ③ | **화면** (프론트) | `virtual-avatar/` (Vite + React + Three.js) | `http://localhost:5173` |
 
-- **`chat-ui.html`** — 정적 채팅 페이지. 토큰 SSE 스트리밍, 캐릭터 애니메이션(눈 깜빡임/입 모션),
-  문장 단위 분할, 서버 오디오 재생 파이프라인(순서 보장 + prefetch), **실제 음량(RMS) 기반 입싱크**,
-  캐릭터 페르소나(시스템 프롬프트) 편집 UI 포함.
-- **`virtual-avatar/`** — Vite + React + Three.js 기반 3D 홈솔루션비서 데모 프론트.
-  좌측에는 캘린더/개인 데이터/가전 실행 상태를 보여주고, 우측에는 3D 캐릭터가 말풍선과 입 모션으로 응답한다.
-- **`tts-server/macos-tts-server.py`** — 맥용 TTS HTTP 서버. 정적 파일 서빙(`--serve-dir`) +
-  `GET /tts` 로 WAV 반환. 백엔드 3종:
-  - `say` (기본, 설치 0) — macOS 내장 음성. UI에서 한국어 음성 선택 가능.
-  - `melo` — MeloTTS(한국어 신경망 TTS). 더 자연스러움. venv 필요.
-  - `qwen` — Qwen3-TTS(로컬, 한국어 화자 Sohee). pip + 모델 다운로드 필요.
+흐름: `[브라우저 ③]` → LLM ① 에서 글자 스트리밍 → 문장 단위로 TTS ② 호출 → 음성 재생.
 
-## 실행
+---
 
-### 1) say 백엔드 (가장 간단, 설치 불필요)
+## 빠른 시작 (평소 실행)
+
+설치가 한 번 끝났다면, 터미널 2개만 띄우면 된다. (LLM ① 은 외부 서버라 별도)
+
+**터미널 A — TTS 서버 ②**
 
 ```bash
-python3 tts-server/macos-tts-server.py --backend say --voice Yuna --port 8080 --serve-dir .
+./run-tts.sh        # = melo 백엔드로 :8080 실행
 ```
 
-### 1-1) 3D 홈솔루션비서 프론트
+**터미널 B — 프론트 ③**
+
+```bash
+cd virtual-avatar
+npm run dev          # http://localhost:5173
+```
+
+브라우저에서 **http://localhost:5173** 접속. 끝.
+
+> 같은 WiFi의 폰/PC에서 보려면 `http://<맥IP>:5173` (맥 IP: `ipconfig getifaddr en0`).
+> 전부 **http(LAN)** 로 통일할 것 — https로 열면 Mixed Content로 http 호출이 막힌다.
+
+### LLM·TTS 주소 바꾸기
+
+프론트가 바라보는 주소는 `virtual-avatar/.env` 에 있다 (`.env.example` 복사해서 사용).
+
+```env
+VITE_PI_API_BASE=http://10.56.130.224:9999   # LLM ① 주소
+VITE_TTS_API_BASE=http://localhost:8080       # TTS ② 주소
+```
+
+---
+
+## 최초 1회 설치
+
+### 프론트 ③
 
 ```bash
 cd virtual-avatar
 npm install
-npm run dev
+cp .env.example .env      # 그리고 .env 에서 LLM 주소를 본인 환경에 맞게 수정
 ```
 
-접속: `http://localhost:5173/`
-
-### 2) melo 백엔드 (더 자연스러운 음성)
+### TTS ② (melo 백엔드)
 
 ```bash
-# 최초 1회: venv 구성
 python3.11 -m venv tts-server/venv
-tts-server/venv/bin/pip install "git+https://github.com/myshell-ai/MeloTTS.git"
-tts-server/venv/bin/python -m unidic download           # 일본어 사전(import 의존성)
-tts-server/venv/bin/pip install python-mecab-ko          # 한국어 g2p용 MeCab
-
-# 실행 (반드시 venv 파이썬으로)
-tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo --port 8080 --serve-dir .
+tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
+tts-server/venv/bin/python -m unidic download   # 일본어 사전 (import 의존성)
+sh tts-server/patch-melo-macos.sh               # macOS 대소문자 충돌 패치
 ```
 
-> **macOS 함정**: 대소문자 비구분 파일시스템에서 일본어 `MeCab` 과 한국어 `mecab` 패키지가 충돌한다.
-> 한국어만 쓰면 `melo/text/japanese.py` 의 `import MeCab` / `_TAGGER` 를 옵셔널로 패치하고
-> `mecab-python3` 대신 `python-mecab-ko` 만 설치하면 된다. (Apple Silicon은 MPS로 문장당 ~1초)
+> **왜 패치가 필요한가**: 대소문자 비구분 파일시스템에서 일본어 `MeCab` 과 한국어 `mecab` 패키지가
+> 충돌한다. 패치는 melo를 한국어 전용으로 바꿔 이 충돌을 피한다. (Apple Silicon은 MPS로 문장당 ~1초)
 
-#### melo + OpenVoiceV2 음색 변환 (선택)
+melo는 기본적으로 `voice/티모 2024 한국어 음성 ...mp3` 를 OpenVoiceV2 레퍼런스 음색으로 사용한다.
 
-melo(한국어 화자 1명 고정)의 출력을 레퍼런스 화자의 음색으로 변환한다.
+---
 
-```bash
-# 최초 1회: OpenVoice repo + 체크포인트 (tts-server/ 아래, gitignore)
-git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git tts-server/openvoice-src
-tts-server/venv/bin/python -m pip install --no-deps wavmark==0.0.3
-mkdir -p tts-server/checkpoints_v2/converter tts-server/checkpoints_v2/base_speakers/ses
-base=https://huggingface.co/myshell-ai/OpenVoiceV2/resolve/main
-for f in converter/config.json converter/checkpoint.pth base_speakers/ses/kr.pth; do
-  curl -sL -o "tts-server/checkpoints_v2/$f" "$base/$f"; done
+## 더 알아보기
 
-# 실행: --voice-convert 에 데모 화자(demo_speaker0/1/2) 또는 wav/mp3 경로
-tts-server/venv/bin/python tts-server/macos-tts-server.py --backend melo \
-  --voice-convert demo_speaker0 --port 8080 --serve-dir .
-```
-
-> 소스 SE 는 `kr.pth`, 타겟 SE 는 레퍼런스에서 추출(whisper 불필요). 변환기는 CPU 사용.
-> 문장당 melo(~0.5s) + 변환(~1.2s) 정도. 본인 목소리로 바꾸려면 `--voice-convert <녹음.wav>`.
-
-### 3) qwen 백엔드 (Qwen3-TTS, 로컬 추론)
-
-```bash
-# 최초 1회: 설치 (torch 포함, 수 GB)
-.venv/bin/pip install -U qwen-tts soundfile
-
-# 실행 (Apple Silicon이면 MPS 자동 선택). 최초 실행 시 모델 다운로드(수 GB).
-.venv/bin/python tts-server/macos-tts-server.py --backend qwen --port 8080 --serve-dir .
-```
-
-> 한국어 화자는 기본 `Sohee`. 다른 화자는 `--qwen-speaker <이름>`.
-> 디바이스 강제 지정은 `--device mps|cpu|cuda:0` (기본 `auto`). 모델 변경은 `--qwen-model`.
-> 참고: qwen 백엔드는 UI의 속도(rate) 조절을 지원하지 않는다.
-
-### 접속
-
-- 같은 맥: `http://localhost:8080/chat-ui.html`
-- 같은 WiFi의 폰/PC: `http://<맥IP>:8080/chat-ui.html` (맥 IP: `ipconfig getifaddr en0`)
-
-페이지 상단 **API 서버 주소**에 LLM 엔드포인트(예: `http://10.56.130.224:9999`)를 입력한다.
-페이지와 TTS가 같은 서버라 TTS 쪽 CORS는 신경 쓸 필요 없다. **전부 http(LAN)** 로 통일할 것
-(https로 열면 Mixed Content로 http 호출이 막힘).
-
-## 설정 (페이지 좌측 패널)
-
-- **🎭 캐릭터 설정** — 캐릭터 성격/말투(시스템 프롬프트). 기본값은 발랄한 로봇 '루미'.
-- **🔊 TTS** — 서버 / 브라우저 내장(폴백) / 끄기.
-- **음성** — say 백엔드일 때 한국어 음성 선택(다운로드된 음성만 작동).
-- **속도/높이** — 재생 속도, (브라우저 폴백용) 피치.
+- **다른 TTS 백엔드** (`say` 무설치 / `qwen` 로컬추론) 와 OpenVoice 음색 변환 옵션 → [`tts-server/`](tts-server/) 참고.
+- **단일 HTML 버전**: 프론트 대신 가벼운 `chat-ui.html` 도 있다. TTS 서버에 `--serve-dir .` 를 붙여 실행하면
+  `http://localhost:8080/chat-ui.html` 로 바로 열린다.
+- **프론트 상세** (SSE 스트리밍, 입싱크, 문장 prefetch, VRM 모델) → [`virtual-avatar/README.md`](virtual-avatar/README.md)
 
 ## 라이선스 / 참고
 
 - MeloTTS: https://github.com/myshell-ai/MeloTTS
 - OpenVoiceV2: https://github.com/myshell-ai/OpenVoice (MIT)
 - Qwen3-TTS: https://github.com/QwenLM/Qwen3-TTS (Apache 2.0)
+</content>
+</invoke>
