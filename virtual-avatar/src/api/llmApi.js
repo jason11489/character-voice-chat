@@ -1,4 +1,12 @@
-const API_BASE = import.meta.env.VITE_PI_API_BASE || "http://localhost:8000";
+function getDefaultApiBase() {
+  if (typeof window === "undefined") {
+    return "http://localhost:8000";
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:8000`;
+}
+
+const API_BASE = import.meta.env.VITE_PI_API_BASE || getDefaultApiBase();
 
 export async function askPiLLM(userText, context = {}) {
   const res = await fetch(`${API_BASE}/chat`, {

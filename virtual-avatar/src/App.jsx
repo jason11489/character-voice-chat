@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
+import { askPiLLM, getApiBase } from "./api/llmApi.js";
 import { getTTSHealth, synthesizeSpeech } from "./api/ttsApi.js";
 import SpeechBubble from "./ui/SpeechBubble.jsx";
 import { demoEvents } from "./mock/demoEvents.js";
@@ -43,6 +44,25 @@ function pickScenario(prompt) {
   return demoEvents.find((demo) => demo.id === "company-dinner");
 }
 
+function buildScenarioContext(scenario) {
+  return {
+    scene: scenario.sceneTitle,
+    now: scenario.now,
+    calendar: scenario.calendar,
+    data: scenario.data,
+    devices: scenario.devices,
+    flow: scenario.flow,
+  };
+}
+
+function normalizeLLMResult(result, fallback) {
+  return {
+    text: result?.text || fallback.text,
+    emotion: result?.emotion || fallback.emotion || "thinking",
+    action: result?.action || fallback.action || "thinking",
+  };
+}
+
 export default function App() {
   const [activeDemo, setActiveDemo] = useState(demoEvents[0]);
   const [userText, setUserText] = useState(demoEvents[0].userText);
@@ -52,6 +72,7 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
+  const [llmState, setLlmState] = useState("ready");
   const [ttsState, setTtsState] = useState("idle");
   const speakingTimerRef = useRef(null);
   const audioRef = useRef(null);
@@ -219,17 +240,27 @@ export default function App() {
 
     setLoading(true);
     setErrorText("");
+    setLlmState("calling");
     setEmotion("thinking");
     setAction("thinking");
     setSpeaking(false);
-    setAvatarText("데이터를 확인하고 홈솔루션 루틴을 고르는 중이야...");
+    setAvatarText("API 서버에 사용자 데이터와 상황을 보내고 응답을 기다리는 중이야...");
 
-    window.setTimeout(() => {
-      const scenario = pickScenario(trimmed);
-      setActiveDemo(scenario);
+    const scenario = pickScenario(trimmed);
+    setActiveDemo(scenario);
+
+    try {
+      const apiResult = await askPiLLM(trimmed, buildScenarioContext(scenario));
+      setLlmState("api");
+      speak(normalizeLLMResult(apiResult, scenario.assistant));
+    } catch (error) {
+      console.info("LLM API unavailable. Falling back to demo scenario.", error);
+      setLlmState("mock-fallback");
+      setErrorText(`LLM API fallback: ${error.message}`);
       speak(scenario.assistant);
+    } finally {
       setLoading(false);
-    }, 420);
+    }
   }
 
   function handleSubmit(e) {
@@ -348,7 +379,7 @@ export default function App() {
       <SpeechBubble text={avatarText} />
 
       <div className="status-pill">
-        mock LLM · TTS: {ttsState} · emotion: {emotion} · action: {action} · speaking: {String(speaking)}
+        LLM: {llmState} · API: {getApiBase()} · TTS: {ttsState} · emotion: {emotion} · action: {action} · speaking: {String(speaking)}
       </div>
 
       {errorText && <div className="error-box">{errorText}</div>}
