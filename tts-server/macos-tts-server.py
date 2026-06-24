@@ -4,7 +4,6 @@
 
 - 기본 백엔드: macOS 내장 `say` (추가 설치 0). 'Yuna' 등 한국어 음성 사용.
 - 선택 백엔드: MeloTTS (--backend melo). 더 자연스럽지만 pip 설치 필요.
-- 선택 백엔드: Qwen3-TTS (--backend qwen). 로컬 추론, 한국어 화자 Sohee. pip + 모델 다운로드 필요.
 
 브라우저(chat-ui)가 같은 WiFi에서 GET /tts?text=... 로 호출하면 WAV(오디오)를 돌려줍니다.
 WAV를 받기 때문에 브라우저에서 실제 음량 기반 입싱크가 가능합니다.
@@ -13,16 +12,13 @@ WAV를 받기 때문에 브라우저에서 실제 음량 기반 입싱크가 가
     python3 macos-tts-server.py                 # say 백엔드, 포트 5050
     python3 macos-tts-server.py --voice Yuna --port 5050
     python3 macos-tts-server.py --backend melo  # MeloTTS 사용(설치돼 있을 때)
-    python3 macos-tts-server.py --backend qwen  # Qwen3-TTS 사용(pip install -U qwen-tts 후)
 
 종료: Ctrl+C
 """
 
 import argparse
-import io
 import os
 import re
-import shlex
 import subprocess
 import sys
 import tempfile
@@ -30,15 +26,24 @@ import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_MELO_VOICE = os.path.join(
+    HERE,
+    "..",
+    "voice",
+    "티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3",
+)
 
 ARGS = None
 MELO_TTS = None          # MeloTTS 모델 (지연 로딩)
 MELO_SPEAKER = None
 MELO_LOCK = threading.Lock()
-
-QWEN_TTS = None          # Qwen3-TTS 모델 (지연 로딩)
-QWEN_LOCK = threading.Lock()
+SYNTH_CACHE = {}
+SYNTH_CACHE_LOCK = threading.Lock()
 
 # OpenVoiceV2 음색 변환 (melo 백엔드). MELO_LOCK 으로 직렬화.
 OV_CONVERTER = None      # ToneColorConverter (지연 로딩)
@@ -201,61 +206,24 @@ def synth_melo(text: str, rate: float, voice: str = "") -> bytes:
                 return f.read()
 
 
-# --------------------------- 백엔드: Qwen3-TTS (로컬) ---------------------------
-def load_qwen():
-    global QWEN_TTS
-    if QWEN_TTS is not None:
-        return
-    import torch  # type: ignore
-    from qwen_tts import Qwen3TTSModel  # type: ignore
-
-    if ARGS.device != "auto":
-        device = ARGS.device
-    elif torch.backends.mps.is_available():
-        device = "mps"            # Apple Silicon
-    elif torch.cuda.is_available():
-        device = "cuda:0"
-    else:
-        device = "cpu"
-
-    # bfloat16 은 가속기에서만. flash_attention_2 는 CUDA 전용 → Mac/CPU 에선 미지정.
-    dtype = torch.bfloat16 if device != "cpu" else torch.float32
-    kwargs = dict(device_map=device, dtype=dtype)
-    if device.startswith("cuda"):
-        kwargs["attn_implementation"] = "flash_attention_2"
-
-    QWEN_TTS = Qwen3TTSModel.from_pretrained(ARGS.qwen_model, **kwargs)
-    print(f"Qwen3-TTS 로드 완료 (device={device}, dtype={dtype})")
-    # 첫 추론 워밍업 → 실제 첫 요청 지연 제거
-    try:
-        QWEN_TTS.generate_custom_voice(
-            text="안녕하세요", language=ARGS.qwen_language, speaker=ARGS.qwen_speaker,
-        )
-        print("Qwen3-TTS 워밍업 완료")
-    except Exception as e:
-        print("Qwen3-TTS 워밍업 건너뜀:", e)
-
-
-def synth_qwen(text: str) -> bytes:
-    import io as _io
-    import soundfile as sf  # type: ignore
-    with QWEN_LOCK:
-        load_qwen()
-        wavs, sr = QWEN_TTS.generate_custom_voice(
-            text=text, language=ARGS.qwen_language, speaker=ARGS.qwen_speaker,
-        )
-        # numpy float → 표준 PCM16 WAV (브라우저 decodeAudioData 호환). rate 는 미지원.
-        buf = _io.BytesIO()
-        sf.write(buf, wavs[0], sr, format="WAV", subtype="PCM_16")
-        return buf.getvalue()
-
-
 def synthesize(text: str, voice: str, rate: float) -> bytes:
-    if ARGS.backend == "qwen":
-        return synth_qwen(text)
-    if ARGS.backend == "melo":
-        return synth_melo(text, rate, voice)
-    return synth_say(text, voice or ARGS.voice, rate)
+    active_voice = voice or ARGS.voice_convert or ARGS.voice
+    cache_key = (ARGS.backend, active_voice, round(rate, 2), text)
+
+    with SYNTH_CACHE_LOCK:
+        cached = SYNTH_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if ARGS.backend == "melo":
+            audio = synth_melo(text, rate, voice)
+        else:
+            audio = synth_say(text, voice or ARGS.voice, rate)
+
+        if len(SYNTH_CACHE) >= 64:
+            SYNTH_CACHE.pop(next(iter(SYNTH_CACHE)))
+        SYNTH_CACHE[cache_key] = audio
+        return audio
 
 
 # --------------------------- HTTP 핸들러 ---------------------------
@@ -275,14 +243,21 @@ class Handler(BaseHTTPRequestHandler):
         qs = urllib.parse.parse_qs(parsed.query)
 
         if parsed.path == "/health":
-            voice = ARGS.qwen_speaker if ARGS.backend == "qwen" else ARGS.voice
-            self._send_json({"ok": True, "backend": ARGS.backend, "voice": voice})
+            voice = (
+                os.path.splitext(os.path.basename(ARGS.voice_convert))[0]
+                if ARGS.backend == "melo" and ARGS.voice_convert
+                else ("KR" if ARGS.backend == "melo" else ARGS.voice)
+            )
+            self._send_json({
+                "ok": True,
+                "backend": ARGS.backend,
+                "voice": voice,
+                "cached_sentences": len(SYNTH_CACHE),
+            })
             return
         if parsed.path == "/voices":
             if ARGS.backend == "melo":
                 voices = list_ov_voices()       # 음색 변환용 캐릭터 음성(voice-dir)
-            elif ARGS.backend == "qwen":
-                voices = []
             else:
                 voices = list_say_voices()
             self._send_json({"voices": voices})
@@ -372,16 +347,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=5050)
-    p.add_argument("--backend", choices=["say", "melo", "qwen"], default="say")
+    p.add_argument("--backend", choices=["say", "melo"], default="say")
     p.add_argument("--voice", default="Yuna", help="say 백엔드 음성 (예: Yuna)")
-    p.add_argument("--device", default="auto", help="qwen 백엔드 디바이스 (auto/mps/cuda:0/cpu)")
-    p.add_argument("--qwen-model", default="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
-                   help="qwen 백엔드 HF 모델 ID")
-    p.add_argument("--qwen-speaker", default="Sohee", help="qwen 화자 (한국어: Sohee)")
-    p.add_argument("--qwen-language", default="Korean", help="qwen 언어")
-    p.add_argument("--voice-convert", default=None,
+    p.add_argument("--voice-convert", default=DEFAULT_MELO_VOICE,
                    help="melo 백엔드 OpenVoiceV2 음색 변환 기본 레퍼런스 "
-                        "(UI 에서 음성 미선택 시 사용. 데모 이름 demo_speaker0/1/2 또는 wav/mp3 경로)")
+                        "(기본: 티모 한국어 음성. UI 에서 음성 미선택 시 사용)")
     p.add_argument("--voice-dir", default=os.path.join(HERE, "..", "voice"),
                    help="melo 백엔드 음색 변환용 캐릭터 음성(mp3/wav) 디렉터리. "
                         "여기 파일들이 UI 음성 드롭다운에 뜬다")
@@ -418,17 +388,13 @@ def main():
             except Exception as e:
                 print("⚠️ OpenVoiceV2 로드 실패 → 변환 없이 melo 원본 사용:", e)
                 ARGS.voice_convert = None
-    else:  # qwen
-        print(f"Qwen3-TTS 백엔드: 모델을 미리 로드합니다(최초 다운로드 수 GB·수십 초~분, "
-              f"speaker={ARGS.qwen_speaker})...")
-        try:
-            load_qwen()
-        except Exception as e:
-            print("⚠️ Qwen3-TTS 로드 실패 → say 로 폴백:", e)
-            ARGS.backend = "say"
-
     srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
-    print(f"🔊 TTS 서버 시작: http://{ARGS.host}:{ARGS.port}  (backend={ARGS.backend}, voice={ARGS.voice})")
+    active_voice = (
+        os.path.splitext(os.path.basename(ARGS.voice_convert))[0]
+        if ARGS.backend == "melo" and ARGS.voice_convert
+        else ARGS.voice
+    )
+    print(f"🔊 TTS 서버 시작: http://{ARGS.host}:{ARGS.port}  (backend={ARGS.backend}, voice={active_voice})")
     if ARGS.serve_dir:
         print(f"🌐 페이지도 서빙: http://<맥IP>:{ARGS.port}/chat-ui.html  (dir={os.path.realpath(ARGS.serve_dir)})")
         print("   → 같은 서버라 TTS 호출이 동일 오리진(CORS 걱정 없음). chat-ui 의 TTS 서버 칸은 비워두거나 같은 주소로.")

@@ -1,89 +1,108 @@
 # 캐릭터 음성 채팅 (Character Voice Chat)
 
-3D 캐릭터와 **음성으로 대화**하는 앱. 글자 생성(LLM)은 외부 서버에서, 음성 합성(TTS)은 맥에서 처리한다.
+3D 캐릭터와 음성으로 대화하는 앱입니다. 글자 생성(LLM)은 외부 서버에서,
+음성 합성(TTS)은 맥에서 처리합니다.
 
-## 서버 3개만 기억하면 된다
+## 서버 3개
 
-| # | 역할 | 무엇 | 주소 |
-|---|------|------|------|
-| ① | **LLM** (글자 생성) | 외부 서버 (라즈베리파이 등). 이미 떠 있다고 가정 | `http://<LLM_IP>:9999` |
-| ② | **TTS** (음성 합성) | 맥의 `tts-server/macos-tts-server.py` | `http://localhost:8080` |
-| ③ | **화면** (프론트) | `virtual-avatar/` (Vite + React + Three.js) | `http://localhost:5173` |
+| 역할 | 서버 | 주소 |
+|---|---|---|
+| LLM | 외부 서버 또는 라즈베리파이 | `http://<LLM_IP>:9999` |
+| TTS | `tts-server/macos-tts-server.py` | `http://localhost:8080` |
+| 프론트 | `virtual-avatar/` | `http://localhost:5173` |
 
-흐름: `[브라우저 ③]` → LLM ① 에서 글자 스트리밍 → 문장 단위로 TTS ② 호출 → 음성 재생.
+흐름: 브라우저에서 LLM 응답을 스트리밍으로 받고, 완성된 문장부터 TTS 서버에
+전달해 순서대로 재생합니다.
 
----
+## 빠른 시작
 
-## 빠른 시작 (평소 실행)
+설치가 끝난 환경에서는 터미널 두 개를 사용합니다.
 
-설치가 한 번 끝났다면, 터미널 2개만 띄우면 된다. (LLM ① 은 외부 서버라 별도)
-
-**터미널 A — TTS 서버 ②**
+터미널 A:
 
 ```bash
-./run-tts.sh        # = melo 백엔드로 :8080 실행
+./run-tts.sh
 ```
 
-**터미널 B — 프론트 ③**
+터미널 B:
 
 ```bash
 cd virtual-avatar
-npm run dev          # http://localhost:5173
+npm run dev
 ```
 
-브라우저에서 **http://localhost:5173** 접속. 끝.
+브라우저에서 `http://localhost:5173`에 접속합니다.
 
-> 같은 WiFi의 폰/PC에서 보려면 `http://<맥IP>:5173` (맥 IP: `ipconfig getifaddr en0`).
-> 전부 **http(LAN)** 로 통일할 것 — https로 열면 Mixed Content로 http 호출이 막힌다.
+같은 Wi-Fi의 다른 기기에서는 `http://<맥IP>:5173`으로 접속할 수 있습니다.
+LLM과 TTS가 HTTP이므로 프론트도 HTTP로 실행해야 합니다.
 
-### LLM·TTS 주소 바꾸기
+### 서버 주소
 
-프론트가 바라보는 주소는 `virtual-avatar/.env` 에 있다 (`.env.example` 복사해서 사용).
+`virtual-avatar/.env`:
 
 ```env
-VITE_PI_API_BASE=http://10.56.130.224:9999   # LLM ① 주소
-VITE_TTS_API_BASE=http://localhost:8080       # TTS ② 주소
+VITE_PI_API_BASE=http://10.56.130.224:9999
+VITE_TTS_API_BASE=http://localhost:8080
 ```
 
----
+## 최초 설치
 
-## 최초 1회 설치
-
-### 프론트 ③
+### 프론트
 
 ```bash
 cd virtual-avatar
 npm install
-cp .env.example .env      # 그리고 .env 에서 LLM 주소를 본인 환경에 맞게 수정
+cp .env.example .env
 ```
 
-### TTS ② (melo 백엔드)
+### TTS
+
+Python 3.11 환경을 사용합니다.
 
 ```bash
 python3.11 -m venv tts-server/venv
 tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
-tts-server/venv/bin/python -m unidic download   # 일본어 사전 (import 의존성)
-sh tts-server/patch-melo-macos.sh               # macOS 대소문자 충돌 패치
+sh tts-server/patch-melo-macos.sh
 ```
 
-> **왜 패치가 필요한가**: 대소문자 비구분 파일시스템에서 일본어 `MeCab` 과 한국어 `mecab` 패키지가
-> 충돌한다. 패치는 melo를 한국어 전용으로 바꿔 이 충돌을 피한다. (Apple Silicon은 MPS로 문장당 ~1초)
+macOS의 대소문자 비구분 파일시스템에서는 일본어 `MeCab`과 한국어 `mecab`
+패키지가 충돌합니다. `patch-melo-macos.sh`는 MeloTTS를 한국어 전용으로
+패치하고 한국어 MeCab을 다시 설치합니다.
 
-melo는 기본적으로 `voice/티모 2024 한국어 음성 ...mp3` 를 OpenVoiceV2 레퍼런스 음색으로 사용한다.
+## TTS 동작
 
----
+- 기본 백엔드: MeloTTS 한국어 모델
+- 기본 음색: `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
+- 음색 변환: OpenVoiceV2
+- API: `GET /tts?text=...&rate=1.0`
+- 캐시: 서버에서 최근 64개 문장의 WAV를 메모리에 보관
+- 프론트: 고정 문구를 백그라운드에서 미리 합성하고 브라우저 메모리에도 캐시
 
-## 더 알아보기
+다른 음색을 기본으로 지정하려면:
 
-- **다른 TTS 백엔드** (`say` 무설치 / `qwen` 로컬추론) 와 OpenVoice 음색 변환 옵션 → [`tts-server/`](tts-server/) 참고.
-- **단일 HTML 버전**: 프론트 대신 가벼운 `chat-ui.html` 도 있다. TTS 서버에 `--serve-dir .` 를 붙여 실행하면
-  `http://localhost:8080/chat-ui.html` 로 바로 열린다.
-- **프론트 상세** (SSE 스트리밍, 입싱크, 문장 prefetch, VRM 모델) → [`virtual-avatar/README.md`](virtual-avatar/README.md)
+```bash
+tts-server/venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo \
+  --voice-convert "voice/스파이패밀리 아냐 목소리 대사 모음.mp3" \
+  --port 8080 \
+  --serve-dir .
+```
 
-## 라이선스 / 참고
+`say` 백엔드로 실행하려면:
+
+```bash
+./run-tts.sh --backend say --voice Yuna
+```
+
+## 추가 정보
+
+- 단일 HTML 버전은 `chat-ui.html`입니다.
+- TTS 서버에 `--serve-dir .`를 사용하면 `http://localhost:8080/chat-ui.html`로
+  접속할 수 있습니다.
+- 프론트의 SSE 스트리밍과 TTS 큐 동작은
+  [`virtual-avatar/README.md`](virtual-avatar/README.md)를 참고하세요.
+
+## 라이선스
 
 - MeloTTS: https://github.com/myshell-ai/MeloTTS
 - OpenVoiceV2: https://github.com/myshell-ai/OpenVoice (MIT)
-- Qwen3-TTS: https://github.com/QwenLM/Qwen3-TTS (Apache 2.0)
-</content>
-</invoke>
