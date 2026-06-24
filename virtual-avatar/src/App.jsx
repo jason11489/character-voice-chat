@@ -193,12 +193,7 @@ export default function App() {
     setTtsState("loading");
 
     try {
-      const health = await getTTSHealth();
-
-      if (health.provider !== "qwen") {
-        playBrowserTTS(text, fallbackMs);
-        return;
-      }
+      await getTTSHealth();
 
       const blob = await synthesizeSpeech(text);
       const url = URL.createObjectURL(blob);

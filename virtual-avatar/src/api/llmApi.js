@@ -230,37 +230,8 @@ async function callOpenAICompatible(userText, context) {
   }
 }
 
-async function callLegacyChat(userText, context) {
-  const apiBase = getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
-  const res = await fetch(`${apiBase}/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_text: userText,
-      context,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(`Legacy LLM API failed: ${res.status} ${errorText}`);
-  }
-
-  return sanitizeResponse(await res.json());
-}
-
 export async function askPiLLM(userText, context = {}) {
-  try {
-    return await callOpenAICompatible(userText, context);
-  } catch (openAiError) {
-    try {
-      return await callLegacyChat(userText, context);
-    } catch (legacyError) {
-      throw new Error(`${openAiError.message} / ${legacyError.message}`);
-    }
-  }
+  return await callOpenAICompatible(userText, context);
 }
 
 export function getApiBase() {
@@ -268,5 +239,8 @@ export function getApiBase() {
 }
 
 export function getTtsApiBase() {
-  return getEnvBase("VITE_TTS_API_BASE", getApiBase());
+  const fallback = typeof window === "undefined"
+    ? "http://localhost:8080"
+    : `${window.location.protocol}//${window.location.hostname}:8080`;
+  return getEnvBase("VITE_TTS_API_BASE", fallback);
 }

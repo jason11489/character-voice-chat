@@ -10,16 +10,30 @@ cp .env.example .env
 npm run dev
 ```
 
-`.env`에서 라즈베리파이 IP와 LLM 모델명을 설정하세요.
+`.env`에서 라즈베리파이 LLM 주소와 맥 TTS 서버 주소를 설정하세요.
 
 ```env
-VITE_PI_API_BASE=http://192.168.0.23:8000
+VITE_PI_API_BASE=http://10.56.130.224:9999
 VITE_LLM_MODEL=distributed-llama
 VITE_LLM_STREAM=true
-VITE_TTS_API_BASE=http://192.168.0.23:8000
+VITE_TTS_API_BASE=http://localhost:8080
 ```
 
-프론트는 기본적으로 `POST /v1/chat/completions`를 `stream: true`로 호출하고, SSE `data:` 라인을 이어붙여 응답을 만듭니다. 응답에 JSON 외 텍스트가 섞여도 최대한 정리해서 표시하고, 그 경로가 없으면 기존 `POST /chat`으로 fallback합니다. `VITE_TTS_API_BASE`를 따로 주면 TTS 서버를 LLM 서버와 분리해서 붙일 수 있습니다.
+프론트는 라즈베리파이의 `POST /v1/chat/completions`를 `stream: true`로 호출하고, SSE `data:` 라인을 이어붙여 응답을 만듭니다. 응답에 JSON 외 텍스트가 섞여도 최대한 정리해서 표시합니다.
+
+TTS는 맥의 `tts-server/macos-tts-server.py`가 제공하는 `GET /health`와
+`GET /tts?text=...`를 사용합니다. LLM과 TTS는 서로 다른 서버입니다.
+
+```bash
+python3.11 -m venv ../tts-server/venv
+../tts-server/venv/bin/pip install -r ../tts-server/requirements-melo.txt
+sh ../tts-server/patch-melo-macos.sh
+../tts-server/venv/bin/python ../tts-server/macos-tts-server.py \
+  --backend melo --port 8080
+```
+
+Melo 서버는 기본적으로 `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`를
+OpenVoiceV2 레퍼런스로 사용합니다.
 
 ## VRM 모델
 

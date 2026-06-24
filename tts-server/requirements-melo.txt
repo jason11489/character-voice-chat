@@ -1,0 +1,4 @@
+numpy<2
+git+https://github.com/myshell-ai/MeloTTS.git
+python-mecab-ko
+wavmark==0.0.3
