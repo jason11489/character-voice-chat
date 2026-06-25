@@ -1,53 +1,33 @@
-# 캐릭터 음성 채팅 (Character Voice Chat)
+# 캐릭터 음성 채팅
 
-3D 캐릭터와 음성으로 대화하는 앱입니다. 글자 생성(LLM)은 외부 서버에서,
-음성 합성(TTS)은 맥에서 처리합니다.
+3D 캐릭터와 음성으로 대화하는 앱입니다. 현재 구조는 아래처럼 나뉩니다.
 
-## 서버 3개
-
-| 역할 | 서버 | 주소 |
+| 역할 | 서버 | 기본 주소 |
 |---|---|---|
 | LLM | 외부 서버 또는 라즈베리파이 | `http://<LLM_IP>:9999` |
-| TTS | `tts-server/macos-tts-server.py` | `http://localhost:8080` |
-| 프론트 | `virtual-avatar/` | `http://localhost:5173` |
+| TTS | 맥에서 실행하는 `tts-server/macos-tts-server.py` | `http://localhost:8080` |
+| 프론트 | `virtual-avatar/` Vite 개발 서버 | `http://localhost:5173` |
 
-흐름: 브라우저에서 LLM 응답을 스트리밍으로 받고, 완성된 문장부터 TTS 서버에
-전달해 순서대로 재생합니다.
+브라우저는 라즈베리파이 LLM에 `POST /v1/chat/completions`로 연결하고, 완성된 문장부터
+맥 TTS 서버에 보내 순서대로 재생합니다.
 
-## 빠른 시작
+## 처음 받은 사람용 셋업
 
-설치가 끝난 환경에서는 터미널 두 개를 사용합니다.
+### 1. 사전 준비
 
-터미널 A:
+- macOS
+- Node.js 18 이상
+- Python 3.11
+- 라즈베리파이 또는 다른 LLM HTTP 서버 주소
+
+확인 명령:
 
 ```bash
-./run-tts.sh
+node -v
+python3.11 --version
 ```
 
-터미널 B:
-
-```bash
-cd virtual-avatar
-npm run dev
-```
-
-브라우저에서 `http://localhost:5173`에 접속합니다.
-
-같은 Wi-Fi의 다른 기기에서는 `http://<맥IP>:5173`으로 접속할 수 있습니다.
-LLM과 TTS가 HTTP이므로 프론트도 HTTP로 실행해야 합니다.
-
-### 서버 주소
-
-`virtual-avatar/.env`:
-
-```env
-VITE_PI_API_BASE=http://10.56.130.224:9999
-VITE_TTS_API_BASE=http://localhost:8080
-```
-
-## 최초 설치
-
-### 프론트
+### 2. 프론트 설치
 
 ```bash
 cd virtual-avatar
@@ -55,30 +35,101 @@ npm install
 cp .env.example .env
 ```
 
-### TTS
+`virtual-avatar/.env`를 열어서 실제 서버 주소로 수정합니다.
 
-Python 3.11 환경을 사용합니다.
+```env
+VITE_PI_API_BASE=http://10.56.130.224:9999
+VITE_LLM_MODEL=distributed-llama
+VITE_LLM_STREAM=true
+VITE_TTS_API_BASE=http://localhost:8080
+```
+
+설명:
+
+- `VITE_PI_API_BASE`: 라즈베리파이 LLM 주소
+- `VITE_LLM_MODEL`: LLM 서버가 받는 모델 이름
+- `VITE_LLM_STREAM`: 스트리밍 사용 여부
+- `VITE_TTS_API_BASE`: 현재 맥에서 띄울 TTS 서버 주소
+
+### 3. TTS Python venv 생성
+
+루트에서 실행합니다.
 
 ```bash
 python3.11 -m venv tts-server/venv
+tts-server/venv/bin/pip install --upgrade pip
 tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
 sh tts-server/patch-melo-macos.sh
 ```
 
-macOS의 대소문자 비구분 파일시스템에서는 일본어 `MeCab`과 한국어 `mecab`
-패키지가 충돌합니다. `patch-melo-macos.sh`는 MeloTTS를 한국어 전용으로
-패치하고 한국어 MeCab을 다시 설치합니다.
+`patch-melo-macos.sh`는 macOS에서 한국어 `mecab` 충돌을 피하기 위한 패치입니다.
 
-## TTS 동작
+### 4. TTS 모델/레퍼런스 확인
 
-- 기본 백엔드: MeloTTS 한국어 모델
-- 기본 음색: `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
-- 음색 변환: OpenVoiceV2
-- API: `GET /tts?text=...&rate=1.0`
-- 캐시: 서버에서 최근 64개 문장의 WAV를 메모리에 보관
-- 프론트: 고정 문구를 백그라운드에서 미리 합성하고 브라우저 메모리에도 캐시
+현재 기본 음성 레퍼런스는 아래 파일입니다.
 
-다른 음색을 기본으로 지정하려면:
+`voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
+
+기본 실행은 MeloTTS + OpenVoiceV2 음색 변환 기준입니다. 첫 실행 전에 관련 모델이
+로컬에 준비되어 있어야 합니다.
+
+### 5. 실행
+
+터미널 1:
+
+```bash
+./run-tts.sh
+```
+
+터미널 2:
+
+```bash
+cd virtual-avatar
+npm run dev
+```
+
+브라우저:
+
+```text
+http://localhost:5173
+```
+
+같은 Wi-Fi의 다른 기기에서는 `http://<맥IP>:5173`으로 접속할 수 있습니다.
+
+## 실행 순서 체크리스트
+
+1. `virtual-avatar/.env`에 LLM 주소 입력
+2. `tts-server/venv` 생성 및 의존성 설치
+3. `./run-tts.sh`로 TTS 실행
+4. `cd virtual-avatar && npm run dev`
+5. 브라우저에서 `http://localhost:5173` 접속
+
+## 자주 헷갈리는 부분
+
+### `venv`는 무엇을 쓰나
+
+- 실제 사용 중인 Python 가상환경: `tts-server/venv`
+- 실행 파일: `tts-server/venv/bin/python`
+- 편의 실행 스크립트: `./run-tts.sh`
+
+### `pi-llm-server`도 실행해야 하나
+
+현재 이 레포에서 실제로 쓰는 LLM 경로는 `virtual-avatar/.env`의
+`VITE_PI_API_BASE`입니다. 즉, 프론트는 지정한 외부 HTTP LLM 서버에 직접 붙습니다.
+
+`pi-llm-server/` 폴더는 지금 기준으로 실행 엔트리 파일이 없고 `.env`, `.venv`만 남아
+있어서, 처음 받은 사람은 셋업 대상에서 제외해도 됩니다.
+
+## TTS 동작 요약
+
+- 기본 백엔드: `melo`
+- 기본 음색: `Teemo` 샘플
+- 음색 변환: `OpenVoiceV2`
+- API: `GET /health`, `GET /tts?text=...&rate=1.0`
+- 서버 캐시: 최근 64개 문장 WAV
+- 프론트 캐시: 자주 쓰는 문장 Blob 캐시
+
+다른 레퍼런스 음성으로 바꾸려면:
 
 ```bash
 tts-server/venv/bin/python tts-server/macos-tts-server.py \
@@ -88,21 +139,14 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py \
   --serve-dir .
 ```
 
-`say` 백엔드로 실행하려면:
+macOS 기본 `say` 백엔드로 확인만 빠르게 하려면:
 
 ```bash
 ./run-tts.sh --backend say --voice Yuna
 ```
 
-## 추가 정보
+## 참고
 
-- 단일 HTML 버전은 `chat-ui.html`입니다.
-- TTS 서버에 `--serve-dir .`를 사용하면 `http://localhost:8080/chat-ui.html`로
-  접속할 수 있습니다.
-- 프론트의 SSE 스트리밍과 TTS 큐 동작은
-  [`virtual-avatar/README.md`](virtual-avatar/README.md)를 참고하세요.
-
-## 라이선스
-
-- MeloTTS: https://github.com/myshell-ai/MeloTTS
-- OpenVoiceV2: https://github.com/myshell-ai/OpenVoice (MIT)
+- 단일 HTML 버전: `chat-ui.html`
+- TTS 서버에 `--serve-dir .`를 쓰면 `http://localhost:8080/chat-ui.html`도 열 수 있습니다.
+- 프론트 스트리밍/TTS 큐 설명은 `virtual-avatar/README.md`에 있습니다.
