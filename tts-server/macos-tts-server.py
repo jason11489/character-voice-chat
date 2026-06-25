@@ -52,6 +52,10 @@ OV_TGT_CACHE = {}        # {레퍼런스 경로: 추출한 타겟 음색} — �
 
 MAX_TEXT = 600           # 한 번에 합성할 최대 글자 수(과부하 방지)
 
+# MeloTTS prosody(억양/리듬) 튜닝. 기본값(0.2/0.8)은 밋밋해서 좀 더 사람스럽게 상향.
+MELO_SDP_RATIO = 0.5     # ↑일수록 문장 리듬·끝음 억양이 살아남(확률적 길이예측 비중)
+MELO_NOISE_SCALE_W = 0.9 # ↑일수록 음절 길이가 들쭉날쭉 → 메트로놈 느낌 제거
+
 
 # --------------------------- 백엔드: macOS say ---------------------------
 def synth_say(text: str, voice: str, rate: float) -> bytes:
@@ -180,14 +184,21 @@ def get_tgt_se(ref_path: str):
     return se
 
 
-def synth_melo(text: str, rate: float, voice: str = "") -> bytes:
+def synth_melo(text: str, rate: float, voice: str = "",
+               sdp_ratio: float = None, noise_scale_w: float = None) -> bytes:
+    sdp = MELO_SDP_RATIO if sdp_ratio is None else sdp_ratio
+    nsw = MELO_NOISE_SCALE_W if noise_scale_w is None else noise_scale_w
     with MELO_LOCK:
         load_melo()
         spk = list(MELO_SPEAKER.values())[0]
         with tempfile.TemporaryDirectory() as d:
             wav = os.path.join(d, "out.wav")
-            # speed: 1.0 기준, UI rate 그대로 사용
-            MELO_TTS.tts_to_file(text, spk, wav, speed=float(rate), quiet=True)
+            # speed: 1.0 기준, UI rate 그대로 사용. sdp_ratio/noise_scale_w 로 억양·리듬 보강.
+            MELO_TTS.tts_to_file(
+                text, spk, wav, speed=float(rate),
+                sdp_ratio=sdp, noise_scale_w=nsw,
+                quiet=True,
+            )
             # 음색 변환 레퍼런스: UI 가 voice 를 주면 그걸, 없으면 서버 기본(--voice-convert).
             ref = None
             if voice:
@@ -206,9 +217,13 @@ def synth_melo(text: str, rate: float, voice: str = "") -> bytes:
                 return f.read()
 
 
-def synthesize(text: str, voice: str, rate: float) -> bytes:
+def synthesize(text: str, voice: str, rate: float,
+               sdp_ratio: float = None, noise_scale_w: float = None) -> bytes:
     active_voice = voice or ARGS.voice_convert or ARGS.voice
-    cache_key = (ARGS.backend, active_voice, round(rate, 2), text)
+    sdp = MELO_SDP_RATIO if sdp_ratio is None else sdp_ratio
+    nsw = MELO_NOISE_SCALE_W if noise_scale_w is None else noise_scale_w
+    cache_key = (ARGS.backend, active_voice, round(rate, 2),
+                 round(sdp, 2), round(nsw, 2), text)
 
     with SYNTH_CACHE_LOCK:
         cached = SYNTH_CACHE.get(cache_key)
@@ -216,7 +231,7 @@ def synthesize(text: str, voice: str, rate: float) -> bytes:
             return cached
 
         if ARGS.backend == "melo":
-            audio = synth_melo(text, rate, voice)
+            audio = synth_melo(text, rate, voice, sdp, nsw)
         else:
             audio = synth_say(text, voice or ARGS.voice, rate)
 
@@ -253,6 +268,8 @@ class Handler(BaseHTTPRequestHandler):
                 "backend": ARGS.backend,
                 "voice": voice,
                 "cached_sentences": len(SYNTH_CACHE),
+                "melo_sdp_ratio": MELO_SDP_RATIO,
+                "melo_noise_scale_w": MELO_NOISE_SCALE_W,
             })
             return
         if parsed.path == "/voices":
@@ -273,17 +290,23 @@ class Handler(BaseHTTPRequestHandler):
 
         text = (qs.get("text", [""])[0] or "").strip()[:MAX_TEXT]
         voice = qs.get("voice", [""])[0]
-        try:
-            rate = float(qs.get("rate", ["1.0"])[0])
-        except ValueError:
-            rate = 1.0
+
+        def _qfloat(name, default):
+            try:
+                return float(qs.get(name, [str(default)])[0])
+            except ValueError:
+                return default
+
+        rate = _qfloat("rate", 1.0)
+        sdp_ratio = _qfloat("sdp_ratio", MELO_SDP_RATIO)
+        noise_scale_w = _qfloat("noise_scale_w", MELO_NOISE_SCALE_W)
         if not text:
             self.send_response(400); self._cors(); self.end_headers()
             self.wfile.write(b"missing text")
             return
 
         try:
-            audio = synthesize(text, voice, rate)
+            audio = synthesize(text, voice, rate, sdp_ratio, noise_scale_w)
         except subprocess.CalledProcessError as e:
             msg = (e.stderr or b"").decode(errors="ignore")
             self._send_error(500, f"say 실패: {msg}")

@@ -33,6 +33,42 @@ idle, nod, shake_head, wave, explain, thinking, celebrate
 const ALLOWED_EMOTIONS = new Set(["idle", "happy", "thinking", "concerned", "sleepy", "excited"]);
 const ALLOWED_ACTIONS = new Set(["idle", "nod", "shake_head", "wave", "explain", "thinking", "celebrate"]);
 
+const MAX_SEQ_LEN = Number(import.meta.env.VITE_LLM_MAX_SEQ_LEN) || 4096;
+const RESET_RATIO = 0.85;
+const RESPONSE_TOKEN_BUDGET = 256;
+const WARMUP_USER = "안녕";
+
+function estimateTokens(text) {
+  let korean = 0;
+  let other = 0;
+  for (const char of text) {
+    if (char >= "가" && char <= "힣") korean += 1;
+    else other += 1;
+  }
+  return Math.ceil(korean * 1.7 + other * 0.35);
+}
+
+const session = {
+  history: [{ role: "system", content: SYSTEM_PROMPT }],
+  tokens: estimateTokens(SYSTEM_PROMPT),
+  contextSent: false,
+};
+
+function resetSession() {
+  session.history = [{ role: "system", content: SYSTEM_PROMPT }];
+  session.tokens = estimateTokens(SYSTEM_PROMPT);
+  session.contextSent = false;
+}
+
+// distributed-llama keeps a single global KV-cache lineage, so overlapping
+// requests would clobber each other's cached prefix. Serialize them.
+let requestChain = Promise.resolve();
+function serialize(task) {
+  const result = requestChain.then(task, task);
+  requestChain = result.then(() => {}, () => {});
+  return result;
+}
+
 function getDefaultApiBase() {
   if (typeof window === "undefined") {
     return "http://localhost:8000";
@@ -59,6 +95,17 @@ ${userText}
 ${JSON.stringify(context, null, 2)}
 
 위 정보를 바탕으로 AvatarResponse JSON만 출력하라.
+`.trim();
+}
+
+// Context unchanged since the last turn: reference the earlier message instead
+// of resending the JSON, so the new user message stays small and cache-friendly.
+function buildUserPromptNoContext(userText) {
+  return `
+사용자 요청:
+${userText}
+
+앞서 준 집 상태 context를 그대로 사용해 AvatarResponse JSON만 출력하라.
 `.trim();
 }
 
@@ -228,10 +275,11 @@ async function readStreamingChatResponse(res, onTextDelta) {
     }
   }
 
-  return content.trim();
+  // Return untrimmed so the exact text can be replayed as cache-matching history.
+  return content;
 }
 
-async function callOpenAICompatible(userText, context, options = {}) {
+async function sendChat(messages, options = {}) {
   const apiBase = getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
   const model = import.meta.env.VITE_LLM_MODEL || "distributed-llama";
   const useStreaming = String(import.meta.env.VITE_LLM_STREAM || "true").toLowerCase() === "true";
@@ -242,10 +290,7 @@ async function callOpenAICompatible(userText, context, options = {}) {
     },
     body: JSON.stringify({
       model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(userText, context) },
-      ],
+      messages,
       temperature: 0.2,
       stream: useStreaming,
     }),
@@ -257,10 +302,44 @@ async function callOpenAICompatible(userText, context, options = {}) {
   }
 
   const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("text/event-stream")) {
+    return await readStreamingChatResponse(res, options.onTextDelta);
+  }
+
   const responseJson = contentType.includes("application/json") ? await res.json() : null;
-  const rawText = contentType.includes("text/event-stream")
-    ? await readStreamingChatResponse(res, options.onTextDelta)
-    : normalizeContentText(responseJson?.choices?.[0]?.message?.content || "");
+  return normalizeContentText(responseJson?.choices?.[0]?.message?.content || "");
+}
+
+async function askOnce(userText, context, options) {
+  // The home-state context is only sent once per session as a cached keyframe
+  // (at warmup and right after a reset); every other turn is utterance-only so
+  // its prefill stays cheap.
+  let includeContext = !session.contextSent;
+  let content = includeContext
+    ? buildUserPrompt(userText, context)
+    : buildUserPromptNoContext(userText);
+  let userTokens = estimateTokens(content);
+
+  // Reset before the session would overflow seqLen. The next request then
+  // re-prefills the system prompt from scratch and re-sends the latest context
+  // as a fresh keyframe.
+  if (session.tokens + userTokens + RESPONSE_TOKEN_BUDGET > MAX_SEQ_LEN * RESET_RATIO) {
+    resetSession();
+    includeContext = true;
+    content = buildUserPrompt(userText, context);
+    userTokens = estimateTokens(content);
+  }
+
+  const userMessage = { role: "user", content };
+  const rawText = await sendChat([...session.history, userMessage], options);
+
+  // Store the assistant reply verbatim so it byte-matches the server's cached
+  // copy on the next turn; otherwise the KV cache resets to a cold prefill.
+  if (rawText.trim()) {
+    session.history.push(userMessage, { role: "assistant", content: rawText });
+    session.tokens += userTokens + estimateTokens(rawText);
+    if (includeContext) session.contextSent = true;
+  }
 
   try {
     return sanitizeResponse(extractJson(rawText));
@@ -273,7 +352,37 @@ async function callOpenAICompatible(userText, context, options = {}) {
 }
 
 export async function askPiLLM(userText, context = {}, options = {}) {
-  return await callOpenAICompatible(userText, context, options);
+  return await serialize(() => askOnce(userText, context, options));
+}
+
+// Prime the server KV cache with a throwaway turn that stays in history, so the
+// first real request only has to prefill its own user message. Including the
+// context as a keyframe means the first turn reusing it pays no context prefill.
+async function primeContext(context) {
+  if (session.history.length > 1) return;
+  const hasContext = context && typeof context === "object";
+  const content = hasContext
+    ? buildUserPrompt(WARMUP_USER, context)
+    : buildUserPromptNoContext(WARMUP_USER);
+  const primeMessage = { role: "user", content };
+  const rawText = await sendChat([...session.history, primeMessage]);
+  if (rawText.trim()) {
+    session.history.push(primeMessage, { role: "assistant", content: rawText });
+    session.tokens += estimateTokens(content) + estimateTokens(rawText);
+    if (hasContext) session.contextSent = true;
+  }
+}
+
+export function warmupLLM(context) {
+  return serialize(() => primeContext(context)).catch(() => {});
+}
+
+// Clear the multi-turn session and re-prime with the latest context.
+export function resetLLMSession(context) {
+  return serialize(async () => {
+    resetSession();
+    await primeContext(context);
+  }).catch(() => {});
 }
 
 export function getApiBase() {

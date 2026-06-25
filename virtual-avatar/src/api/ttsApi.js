@@ -8,6 +8,8 @@ function getSpeechCacheKey(text, options) {
     text.trim(),
     options.rate || 1,
     options.voice || "",
+    options.sdpRatio ?? "",
+    options.noiseScaleW ?? "",
   ]);
 }
 
@@ -20,6 +22,18 @@ export async function getTTSHealth() {
   }
 
   return await res.json();
+}
+
+export async function getTTSVoices() {
+  const res = await fetch(`${getTtsApiBase()}/voices`);
+
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(`TTS voices failed: ${res.status} ${errorText}`);
+  }
+
+  const data = await res.json();
+  return Array.isArray(data.voices) ? data.voices : [];
 }
 
 export async function synthesizeSpeech(text, options = {}) {
@@ -46,6 +60,12 @@ async function fetchSpeech(text, options) {
   });
   if (options.voice) {
     params.set("voice", options.voice);
+  }
+  if (options.sdpRatio != null) {
+    params.set("sdp_ratio", String(options.sdpRatio));
+  }
+  if (options.noiseScaleW != null) {
+    params.set("noise_scale_w", String(options.noiseScaleW));
   }
 
   const res = await fetch(`${getTtsApiBase()}/tts?${params}`);

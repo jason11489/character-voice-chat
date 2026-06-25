@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
-import { askPiLLM } from "./api/llmApi.js";
-import { getTTSHealth, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
+import { askPiLLM, getApiBase, warmupLLM, resetLLMSession } from "./api/llmApi.js";
+import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import SpeechBubble from "./ui/SpeechBubble.jsx";
 import { demoEvents } from "./mock/demoEvents.js";
 
@@ -133,7 +133,16 @@ export default function App() {
   const [action, setAction] = useState("idle");
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [errorText, setErrorText] = useState("");
+  const [llmState, setLlmState] = useState("ready");
+  const [ttsState, setTtsState] = useState("idle");
+  const [ttsBackend, setTtsBackend] = useState("");
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const [ttsVoice, setTtsVoice] = useState("");
+  const [ttsRate, setTtsRate] = useState(1);
+  const [ttsSdp, setTtsSdp] = useState(0.5);
+  const [ttsNoise, setTtsNoise] = useState(0.9);
   const speakingTimerRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
@@ -142,6 +151,7 @@ export default function App() {
   const ttsQueueRef = useRef([]);
   const ttsPumpRef = useRef(null);
   const ttsGenerationRef = useRef(0);
+  const ttsOptionsRef = useRef({ rate: 1, voice: "", sdpRatio: 0.5, noiseScaleW: 0.9 });
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +183,45 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    warmupLLM(buildScenarioContext(demoEvents[0]));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTtsConfig() {
+      try {
+        const health = await getTTSHealth();
+        if (!cancelled) {
+          setTtsBackend(health.backend || "");
+          if (typeof health.melo_sdp_ratio === "number") setTtsSdp(health.melo_sdp_ratio);
+          if (typeof health.melo_noise_scale_w === "number") setTtsNoise(health.melo_noise_scale_w);
+        }
+      } catch (error) {
+        console.info("TTS health unavailable.", error);
+      }
+      try {
+        const voices = await getTTSVoices();
+        if (!cancelled) setTtsVoices(voices);
+      } catch (error) {
+        console.info("TTS voices unavailable.", error);
+      }
+    }
+    loadTtsConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    ttsOptionsRef.current = {
+      rate: ttsRate,
+      voice: ttsVoice,
+      sdpRatio: ttsSdp,
+      noiseScaleW: ttsNoise,
+    };
+  }, [ttsRate, ttsVoice, ttsSdp, ttsNoise]);
 
   function stopAudio() {
     ttsGenerationRef.current += 1;
@@ -254,12 +303,12 @@ export default function App() {
       ) {
         const blob = pendingAudio
           ? await pendingAudio
-          : await synthesizeSpeech(ttsQueueRef.current.shift());
+          : await synthesizeSpeech(ttsQueueRef.current.shift(), ttsOptionsRef.current);
         pendingAudio = null;
 
         if (generation !== ttsGenerationRef.current) break;
         if (ttsQueueRef.current.length > 0) {
-          pendingAudio = synthesizeSpeech(ttsQueueRef.current.shift());
+          pendingAudio = synthesizeSpeech(ttsQueueRef.current.shift(), ttsOptionsRef.current);
         }
 
         await playAudioBlob(blob, generation);
@@ -361,7 +410,7 @@ export default function App() {
     try {
       await getTTSHealth();
 
-      const blob = await synthesizeSpeech(text);
+      const blob = await synthesizeSpeech(text, ttsOptionsRef.current);
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -477,6 +526,20 @@ export default function App() {
     runPrompt(userText);
   }
 
+  async function handleResetSession() {
+    if (loading || resetting) return;
+    setResetting(true);
+    stopAudio();
+    setLlmState("warming");
+    try {
+      await resetLLMSession(buildScenarioContext(activeDemo));
+      setErrorText("");
+      setLlmState("ready");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   function applyDemo(demo) {
     setActiveDemo(demo);
     setUserText(demo.userText);
@@ -509,6 +572,14 @@ export default function App() {
           <button className="primary-button" type="submit" disabled={loading}>
             {loading ? "분석 중" : "실행"}
           </button>
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={handleResetSession}
+            disabled={loading || resetting}
+          >
+            {resetting ? "초기화 중" : "세션 초기화"}
+          </button>
         </form>
 
         <div className="mode-tabs" role="tablist" aria-label="대화 모드">
@@ -531,6 +602,60 @@ export default function App() {
             <strong>보스의 상황 판단 완료</strong>
           </div>
           <span>{usedDataCount}개 단서 · 0.8초</span>
+        </div>
+
+        <div className="section-block">
+          <div className="section-title">음성 설정{ttsBackend ? ` · ${ttsBackend}` : ""}</div>
+          <div className="tts-settings">
+            <label className="tts-row">
+              <span>음성</span>
+              <select value={ttsVoice} onChange={(e) => setTtsVoice(e.target.value)}>
+                <option value="">기본</option>
+                {ttsVoices.map((voice) => (
+                  <option key={voice.name} value={voice.name}>
+                    {voice.lang ? `${voice.name} (${voice.lang})` : voice.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="tts-row">
+              <span>속도 {ttsRate.toFixed(2)}</span>
+              <input
+                type="range"
+                min="0.5"
+                max="1.8"
+                step="0.05"
+                value={ttsRate}
+                onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+              />
+            </label>
+            {ttsBackend === "melo" && (
+              <>
+                <label className="tts-row">
+                  <span>억양 sdp {ttsSdp.toFixed(2)}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={ttsSdp}
+                    onChange={(e) => setTtsSdp(parseFloat(e.target.value))}
+                  />
+                </label>
+                <label className="tts-row">
+                  <span>리듬 noise_w {ttsNoise.toFixed(2)}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1.5"
+                    step="0.05"
+                    value={ttsNoise}
+                    onChange={(e) => setTtsNoise(parseFloat(e.target.value))}
+                  />
+                </label>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="timeline-section" aria-label="캘린더 타임라인">

@@ -178,7 +178,7 @@ button {
 .prompt-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) 82px;
+  grid-template-columns: minmax(0, 1fr) 82px auto;
 }
 
 .input-box {
@@ -217,6 +217,56 @@ button {
   cursor: not-allowed;
 }
 
+.ghost-button {
+  height: 46px;
+  border: 1px solid rgba(16, 24, 40, 0.16);
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.9);
+  color: #344054;
+  font-size: 14px;
+  font-weight: 850;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+  white-space: nowrap;
+}
+
+.ghost-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.tts-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.tts-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #344054;
+}
+
+.tts-row select,
+.tts-row input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.tts-row select {
+  height: 34px;
+  border: 1px solid rgba(16, 24, 40, 0.16);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #101828;
+}
+
+.quick-actions,
 .avatar-toolbar {
   display: flex;
   flex-wrap: wrap;
