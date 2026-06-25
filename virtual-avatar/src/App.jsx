@@ -1,45 +1,58 @@
 import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
-import { askPiLLM, getApiBase } from "./api/llmApi.js";
+import { askPiLLM } from "./api/llmApi.js";
 import { getTTSHealth, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import SpeechBubble from "./ui/SpeechBubble.jsx";
 import { demoEvents } from "./mock/demoEvents.js";
 
-const avatarPresets = [
-  {
-    label: "먼저 말걸기",
-    emotion: "happy",
-    action: "wave",
-    text: "왔어? 오늘 데이터 보니까 바로 쉬고 싶을 것 같아서 집을 먼저 맞춰두고 있었어.",
-  },
-  {
-    label: "설명",
-    emotion: "thinking",
-    action: "explain",
-    text: "캘린더, 위치, 날씨, 결제 내역을 같이 보고 지금 필요한 홈솔루션을 고르는 중이야.",
-  },
-  {
-    label: "밤 모드",
-    emotion: "sleepy",
-    action: "idle",
-    text: "밤이 늦었으니까 말은 짧게 하고, 소리 나는 기기는 조용하게 낮춰둘게.",
-  },
-];
-
 const avatarModels = [
   {
     id: "round",
-    label: "동글이 캐릭터",
-    name: "홈솔루션비서",
+    label: "보스 치킨",
+    name: "보스 치킨",
     modelPath: "/models/untitled-colored.glb",
+    verticalOffset: 0.1,
   },
   {
     id: "human",
-    label: "사람 캐릭터",
-    name: "휴먼비서",
+    label: "보스베이비",
+    name: "보스베이비",
     modelPath: "/models/human-cute.glb",
   },
 ];
+
+function parseTimeParts(value) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return {
+    hours: Number.isFinite(hours) ? hours : 0,
+    minutes: Number.isFinite(minutes) ? minutes : 0,
+    label: value,
+  };
+}
+
+function AnalogClock({ time }) {
+  const hourRotation = (time.hours % 12) * 30 + time.minutes * 0.5;
+  const minuteRotation = time.minutes * 6;
+
+  return (
+    <div className="analog-clock" aria-label={`현재 시각 ${time.label}`}>
+      <span className="clock-mark mark-12">12</span>
+      <span className="clock-mark mark-3">3</span>
+      <span className="clock-mark mark-6">6</span>
+      <span className="clock-mark mark-9">9</span>
+      <span className="clock-hand hour-hand" style={{ transform: `rotate(${hourRotation}deg)` }} />
+      <span className="clock-hand minute-hand" style={{ transform: `rotate(${minuteRotation}deg)` }} />
+      <span className="clock-pin" />
+      <span className="clock-digital">{time.label}</span>
+    </div>
+  );
+}
+
+function getDeviceSignalLabel(status) {
+  if (status === "active") return "실행 중";
+  if (status === "ready") return "명령 대기";
+  return "대기";
+}
 
 function estimateSpeechMs(text) {
   return Math.max(2600, text.length * 88);
@@ -50,28 +63,23 @@ function getInitialAvatarId() {
   return new URLSearchParams(window.location.search).get("avatar") === "human" ? "human" : "round";
 }
 
-function pickScenario(prompt) {
-  const text = prompt.replace(/\s/g, "");
+function getInitialSunglasses() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("sunglasses") === "1";
+}
 
-  if (text.includes("운동") || text.includes("헬스") || text.includes("샤워")) {
-    return demoEvents.find((demo) => demo.id === "workout");
-  }
-
-  if (text.includes("조용") || text.includes("발표") || text.includes("회의")) {
-    return demoEvents.find((demo) => demo.id === "quiet-mode");
-  }
-
-  return demoEvents.find((demo) => demo.id === "company-dinner");
+function getInitialDemo() {
+  if (typeof window === "undefined") return demoEvents[0];
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  return demoEvents.find((demo) => demo.id === mode) || demoEvents[0];
 }
 
 function buildScenarioContext(scenario) {
   return {
     scene: scenario.sceneTitle,
     now: scenario.now,
-    calendar: scenario.calendar,
     data: scenario.data,
     devices: scenario.devices,
-    flow: scenario.flow,
   };
 }
 
@@ -114,17 +122,18 @@ function splitSentences(text) {
 }
 
 export default function App() {
+  const initialDemoRef = useRef(getInitialDemo());
+  const initialDemo = initialDemoRef.current;
   const [selectedAvatarId, setSelectedAvatarId] = useState(getInitialAvatarId);
-  const [activeDemo, setActiveDemo] = useState(demoEvents[0]);
-  const [userText, setUserText] = useState(demoEvents[0].userText);
-  const [avatarText, setAvatarText] = useState(demoEvents[0].assistant.text);
-  const [emotion, setEmotion] = useState(demoEvents[0].assistant.emotion);
+  const [bossBabySunglasses, setBossBabySunglasses] = useState(getInitialSunglasses);
+  const [activeDemo, setActiveDemo] = useState(initialDemo);
+  const [userText, setUserText] = useState(initialDemo.userText);
+  const [avatarText, setAvatarText] = useState(initialDemo.assistant.text);
+  const [emotion, setEmotion] = useState(initialDemo.assistant.emotion);
   const [action, setAction] = useState("idle");
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
-  const [llmState, setLlmState] = useState("ready");
-  const [ttsState, setTtsState] = useState("idle");
   const speakingTimerRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
@@ -136,12 +145,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    const fixedTexts = [
-      demoEvents[0].assistant.text,
-      avatarPresets[0].text,
-      ...demoEvents.slice(1).map((demo) => demo.assistant.text),
-      ...avatarPresets.slice(1).map((preset) => preset.text),
-    ];
+    const fixedTexts = demoEvents.map((demo) => demo.assistant.text);
 
     async function prefetchFixedSpeech() {
       try {
@@ -227,7 +231,6 @@ export default function App() {
       audioDoneRef.current = finish;
 
       audio.onplay = () => {
-        setTtsState("streaming");
         setSpeaking(true);
       };
       audio.onended = () => finish();
@@ -263,7 +266,6 @@ export default function App() {
       }
 
       if (generation === ttsGenerationRef.current) {
-        setTtsState("done");
         setSpeaking(false);
         setAction("idle");
       }
@@ -274,8 +276,6 @@ export default function App() {
         ttsQueueRef.current = [];
         if (remaining) {
           playBrowserTTS(remaining, estimateSpeechMs(remaining));
-        } else {
-          setTtsState("fallback");
         }
       }
     } finally {
@@ -292,7 +292,6 @@ export default function App() {
     const cleaned = sentence.replace(/\s+/g, " ").trim();
     if (!cleaned || generation !== ttsGenerationRef.current) return;
     ttsQueueRef.current.push(cleaned);
-    setTtsState("synthesizing");
     drainTTSQueue(generation);
   }
 
@@ -309,7 +308,6 @@ export default function App() {
 
   function playBrowserTTS(text, fallbackMs) {
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-      setTtsState("fallback");
       stopSpeakingAfter(fallbackMs);
       return;
     }
@@ -331,7 +329,6 @@ export default function App() {
     utteranceRef.current = utterance;
 
     utterance.onstart = () => {
-      setTtsState(koreanVoice ? "browser-ko" : "browser-ko-requested");
       setSpeaking(true);
       if (speakingTimerRef.current) {
         window.clearTimeout(speakingTimerRef.current);
@@ -345,14 +342,12 @@ export default function App() {
         window.clearTimeout(speakingTimerRef.current);
         speakingTimerRef.current = null;
       }
-      setTtsState("done");
       setSpeaking(false);
       setAction("idle");
       utteranceRef.current = null;
     };
 
     utterance.onerror = () => {
-      setTtsState("fallback");
       utteranceRef.current = null;
       stopSpeakingAfter(fallbackMs);
     };
@@ -362,7 +357,6 @@ export default function App() {
 
   async function playTTS(text, fallbackMs) {
     stopAudio();
-    setTtsState("loading");
 
     try {
       await getTTSHealth();
@@ -374,7 +368,6 @@ export default function App() {
       audioUrlRef.current = url;
 
       audio.onplay = () => {
-        setTtsState("playing");
         setSpeaking(true);
         if (speakingTimerRef.current) {
           window.clearTimeout(speakingTimerRef.current);
@@ -383,7 +376,6 @@ export default function App() {
       };
 
       audio.onended = () => {
-        setTtsState("done");
         setSpeaking(false);
         setAction("idle");
         audioRef.current = null;
@@ -394,14 +386,12 @@ export default function App() {
       };
 
       audio.onerror = () => {
-        setTtsState("error");
         stopSpeakingAfter(fallbackMs);
       };
 
       await audio.play();
     } catch (error) {
       console.info("TTS unavailable. Falling back to browser/timer lip sync.", error);
-      setTtsState("fallback");
       stopSpeakingAfter(fallbackMs);
     }
   }
@@ -432,7 +422,6 @@ export default function App() {
 
     setLoading(true);
     setErrorText("");
-    setLlmState("calling");
     setEmotion("thinking");
     setAction("thinking");
     setSpeaking(false);
@@ -446,19 +435,24 @@ export default function App() {
       enqueueTTS(sentence, ttsGeneration);
     });
 
-    const scenario = pickScenario(trimmed);
-    setActiveDemo(scenario);
+    const scenario = activeDemo;
 
     try {
-      const apiResult = await askPiLLM(trimmed, buildScenarioContext(scenario), {
+      const apiResult = await askPiLLM(
+        trimmed,
+        buildScenarioContext({
+          ...scenario,
+          now: scenario.now,
+        }),
+        {
         onTextDelta(delta, fullText) {
           streamedText = fullText;
           setAvatarText(fullText);
           sentenceSplitter.push(delta);
         },
-      });
+        }
+      );
       sentenceSplitter.flush();
-      setLlmState("api");
       const result = normalizeLLMResult(apiResult, scenario.assistant);
       setAvatarText(result.text);
       setEmotion(result.emotion);
@@ -469,7 +463,6 @@ export default function App() {
     } catch (error) {
       sentenceSplitter.flush();
       console.info("LLM API unavailable. Falling back to demo scenario.", error);
-      setLlmState("mock-fallback");
       setErrorText(`LLM API fallback: ${error.message}`);
       if (!streamedText) {
         speak(scenario.assistant);
@@ -490,21 +483,20 @@ export default function App() {
     speak(demo.assistant);
   }
 
-  function previewAvatar(preset) {
-    speak(preset);
-  }
-
   const selectedAvatar = avatarModels.find((model) => model.id === selectedAvatarId) || avatarModels[0];
+  const displayTime = parseTimeParts(activeDemo.now);
+  const usedDataCount = activeDemo.data.filter((item) => item.used).length;
 
   return (
     <div className="app-shell">
       <section className="demo-panel" aria-label="사용 데이터와 스케줄러">
         <div className="panel-header">
           <div>
-            <p className="eyebrow">Home Solution Assistant</p>
+            <p className="eyebrow">Boss Home Command</p>
             <h1>{activeDemo.sceneTitle}</h1>
+            <p className="panel-subtitle">찐보스의 마음과 데이터를 읽는 홈솔루션</p>
           </div>
-          <div className="time-badge">{activeDemo.now}</div>
+          <AnalogClock time={displayTime} />
         </div>
 
         <form className="prompt-row" onSubmit={handleSubmit}>
@@ -519,66 +511,120 @@ export default function App() {
           </button>
         </form>
 
-        <div className="quick-actions">
+        <div className="mode-tabs" role="tablist" aria-label="대화 모드">
           {demoEvents.map((demo) => (
             <button
-              className={demo.id === activeDemo.id ? "chip is-active" : "chip"}
+              className={demo.id === activeDemo.id ? "mode-tab is-active" : "mode-tab"}
               key={demo.id}
               onClick={() => applyDemo(demo)}
+              role="tab"
+              aria-selected={demo.id === activeDemo.id}
             >
               {demo.label}
             </button>
           ))}
         </div>
 
-        <div className="section-block">
-          <div className="section-title">캘린더 · 스케줄러</div>
-          <div className="calendar-list">
-            {activeDemo.calendar.map((event) => (
-              <div className="calendar-item" key={`${event.time}-${event.title}`}>
-                <div className="calendar-time">{event.time}</div>
-                <div>
-                  <div className="calendar-title">{event.title}</div>
-                  <div className="calendar-meta">{event.meta}</div>
-                </div>
+        <div className="decision-strip">
+          <div>
+            <span className="decision-pulse" />
+            <strong>보스의 상황 판단 완료</strong>
+          </div>
+          <span>{usedDataCount}개 단서 · 0.8초</span>
+        </div>
+
+        <div className="timeline-section" aria-label="캘린더 타임라인">
+          <div className="timeline-heading">
+            <span>보스가 읽은 오늘의 흐름</span>
+            <strong>{activeDemo.now}</strong>
+          </div>
+          <div className="timeline-track">
+            {activeDemo.timeline.map((event) => (
+              <div className={event.current ? "timeline-event is-current" : "timeline-event"} key={`${event.time}-${event.title}`}>
+                <span className="timeline-dot" />
+                <strong>{event.time}</strong>
+                <span>{event.title}</span>
+                <small>{event.meta}</small>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="section-block">
-          <div className="section-title">사용되는 데이터</div>
+        <div className="section-block data-section">
+          <div className="section-heading">
+            <div>
+              <div className="section-title">보스가 파악한 단서</div>
+              <p>찐보스를 이해하는 데 쓰인 정보만 켜집니다.</p>
+            </div>
+            <span className="usage-count">
+              {usedDataCount}/{activeDemo.data.length} 포착
+            </span>
+          </div>
           <div className="data-grid">
             {activeDemo.data.map((item) => (
-              <div className="data-tile" key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <div className={item.used ? "data-tile is-used" : "data-tile"} key={item.id}>
+                <div className="data-tile-label">
+                  <span className="data-status-dot" />
+                  <span>{item.label}</span>
+                </div>
+                <strong>{item.used ? item.value : "이번 판단에는 미사용"}</strong>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="section-block">
-          <div className="section-title">홈솔루션 실행</div>
-          <div className="device-list">
+        <div className="section-block solution-section">
+          <div className="solution-header">
+            <div className="solution-check" aria-hidden="true">✓</div>
+            <div>
+              <span className="section-kicker">가전 작전 배치 · 실행 결과</span>
+              <div className="section-title">{activeDemo.solutionTitle}</div>
+              <p>{activeDemo.solutionSummary}</p>
+            </div>
+          </div>
+          <div className="solution-grid">
             {activeDemo.devices.map((device) => (
-              <div className="device-row" key={device.name}>
-                <span>{device.name}</span>
-                <strong>{device.state}</strong>
+              <div className={`solution-item is-${device.status}`} key={device.name}>
+                <div>
+                  <span>{device.name}</span>
+                  <strong>{device.state}</strong>
+                </div>
+                <span className="solution-status">
+                  {device.status === "active" ? "실행" : device.status === "ready" ? "준비" : "대기"}
+                </span>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="flow-row">
-          {activeDemo.flow.map((step) => (
-            <span key={step}>{step}</span>
-          ))}
         </div>
       </section>
 
       <section className="avatar-stage" aria-label="3D 홈솔루션비서">
-        <AvatarScene emotion={emotion} action={action} speaking={speaking} modelPath={selectedAvatar.modelPath} />
+        <div className="command-backdrop" aria-hidden="true">
+          <span className="command-ring ring-one" />
+          <span className="command-ring ring-two" />
+          <span className="command-core" />
+        </div>
+
+        <AvatarScene
+          emotion={emotion}
+          action={action}
+          speaking={speaking}
+          modelPath={selectedAvatar.modelPath}
+          verticalOffset={selectedAvatar.verticalOffset || 0}
+          sunglasses={selectedAvatar.id === "human" && bossBabySunglasses}
+        />
+
+        <div className="device-network" aria-label="보스의 가전 명령 상태">
+          {activeDemo.devices.slice(0, 4).map((device, index) => (
+            <div className={`device-signal signal-${index} is-${device.status}`} key={device.name}>
+              <span className="device-signal-index">0{index + 1}</span>
+              <div>
+                <strong>{device.name}</strong>
+                <span>{getDeviceSignalLabel(device.status)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
 
         <div className="avatar-toolbar">
           {avatarModels.map((model) => (
@@ -590,24 +636,27 @@ export default function App() {
               {model.label}
             </button>
           ))}
-          {avatarPresets.map((preset) => (
-            <button className="chip accent-chip" key={preset.label} onClick={() => previewAvatar(preset)}>
-              {preset.label}
+          {selectedAvatar.id === "human" && (
+            <button
+              className={bossBabySunglasses ? "icon-option is-active" : "icon-option"}
+              onClick={() => setBossBabySunglasses((enabled) => !enabled)}
+              aria-pressed={bossBabySunglasses}
+              title="선글라스"
+            >
+              <span aria-hidden="true">⌐■-■</span>
+              선글라스
             </button>
-          ))}
+          )}
         </div>
 
         <div className="assistant-label">
-          <span>3D 캐릭터</span>
+          <span>홈 커맨더</span>
           <strong>{selectedAvatar.name}</strong>
+          <small>{activeDemo.devices.length}개 가전 지휘 중</small>
         </div>
       </section>
 
       <SpeechBubble text={avatarText} />
-
-      <div className="status-pill">
-        LLM: {llmState} · API: {getApiBase()} · TTS: {ttsState} · emotion: {emotion} · action: {action} · speaking: {String(speaking)}
-      </div>
 
       {errorText && <div className="error-box">{errorText}</div>}
     </div>

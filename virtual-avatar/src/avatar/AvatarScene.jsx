@@ -22,6 +22,88 @@ function resetTransform(node, base) {
   node.scale.copy(base.scale);
 }
 
+function scaleAroundGeometryCenter(node, base, factors) {
+  if (!node || !base || !node.geometry) return;
+
+  node.geometry.computeBoundingBox();
+  const center = node.geometry.boundingBox?.getCenter(new THREE.Vector3());
+  if (!center) return;
+
+  node.scale.set(
+    base.scale.x * factors.x,
+    base.scale.y * factors.y,
+    base.scale.z * factors.z
+  );
+  node.position.set(
+    base.position.x + base.scale.x * center.x * (1 - factors.x),
+    base.position.y + base.scale.y * center.y * (1 - factors.y),
+    base.position.z + base.scale.z * center.z * (1 - factors.z)
+  );
+}
+
+function createSunglasses(parts) {
+  if (!parts.leftEye || !parts.rightEye) return null;
+
+  const glasses = new THREE.Group();
+  glasses.name = "BossBabySunglasses";
+
+  const frameMaterial = new THREE.MeshStandardMaterial({
+    color: 0x05070b,
+    roughness: 0.2,
+    metalness: 0.55,
+  });
+  const lensMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x121a24,
+    roughness: 0.12,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const frameGeometry = new THREE.BoxGeometry(0.18, 0.105, 0.022);
+  const lensGeometry = new THREE.BoxGeometry(0.145, 0.073, 0.025);
+
+  const leftFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+  const rightFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+  const leftLens = new THREE.Mesh(lensGeometry, lensMaterial);
+  const rightLens = new THREE.Mesh(lensGeometry, lensMaterial);
+  const glassesZ = parts.leftEye.position.z + 0.045;
+  leftFrame.position.set(parts.leftEye.position.x, parts.leftEye.position.y, glassesZ);
+  rightFrame.position.set(parts.rightEye.position.x, parts.rightEye.position.y, glassesZ);
+  leftLens.position.set(parts.leftEye.position.x, parts.leftEye.position.y, glassesZ + 0.014);
+  rightLens.position.set(parts.rightEye.position.x, parts.rightEye.position.y, glassesZ + 0.014);
+  leftFrame.rotation.z = 0.025;
+  leftLens.rotation.z = 0.025;
+  rightFrame.rotation.z = -0.025;
+  rightLens.rotation.z = -0.025;
+
+  const bridgeGeometry = new THREE.BoxGeometry(0.07, 0.018, 0.018);
+  const bridge = new THREE.Mesh(bridgeGeometry, frameMaterial);
+  bridge.position.set(
+    (parts.leftEye.position.x + parts.rightEye.position.x) / 2,
+    (parts.leftEye.position.y + parts.rightEye.position.y) / 2,
+    glassesZ + 0.004
+  );
+
+  const armGeometry = new THREE.BoxGeometry(0.11, 0.015, 0.015);
+  const leftArm = new THREE.Mesh(armGeometry, frameMaterial);
+  const rightArm = new THREE.Mesh(armGeometry, frameMaterial);
+  leftArm.position.set(parts.leftEye.position.x - 0.135, parts.leftEye.position.y + 0.012, glassesZ - 0.006);
+  rightArm.position.set(parts.rightEye.position.x + 0.135, parts.rightEye.position.y + 0.012, glassesZ - 0.006);
+  leftArm.rotation.z = -0.08;
+  rightArm.rotation.z = 0.08;
+
+  glasses.add(leftFrame, rightFrame, leftLens, rightLens, bridge, leftArm, rightArm);
+  glasses.userData.disposables = [
+    frameGeometry,
+    lensGeometry,
+    bridgeGeometry,
+    armGeometry,
+    frameMaterial,
+    lensMaterial,
+  ];
+  return glasses;
+}
+
 function prepareGLBAvatar(model) {
   const byName = {};
   model.traverse((node) => {
@@ -39,6 +121,8 @@ function prepareGLBAvatar(model) {
     rightWing: byName.RightWing,
     leftEye: byName.LeftEye,
     rightEye: byName.RightEye,
+    leftEyeSparkle: byName.LeftEyeSparkle,
+    rightEyeSparkle: byName.RightEyeSparkle,
     nose: byName.Nose,
     mouth: byName.Mouth,
     leftCheek: byName.LeftCheek,
@@ -48,7 +132,59 @@ function prepareGLBAvatar(model) {
     topFeatherRight: byName.TopFeatherRight,
   };
 
+  const isChick = Boolean(parts.upperBeak && parts.lowerBeak);
+  const faceMesh = byName.BodyFace;
+
+  if (!isChick && faceMesh?.geometry && parts.leftEye && parts.rightEye) {
+    faceMesh.geometry.computeBoundingBox();
+    const faceCenterX = faceMesh.geometry.boundingBox?.getCenter(new THREE.Vector3()).x ?? 0;
+    const eyeY = (parts.leftEye.position.y + parts.rightEye.position.y) / 2;
+
+    parts.leftEye.position.set(faceCenterX - 0.115, eyeY, parts.leftEye.position.z);
+    parts.rightEye.position.set(faceCenterX + 0.115, eyeY, parts.rightEye.position.z);
+
+    if (parts.leftEyeSparkle) {
+      parts.leftEyeSparkle.position.x = parts.leftEye.position.x - 0.015;
+    }
+    if (parts.rightEyeSparkle) {
+      parts.rightEyeSparkle.position.x = parts.rightEye.position.x - 0.015;
+    }
+    if (parts.nose) {
+      parts.nose.position.x = faceCenterX;
+    }
+    if (parts.mouth) {
+      parts.mouth.position.x = faceCenterX;
+    }
+    if (parts.leftCheek && parts.rightCheek) {
+      const cheekY = (parts.leftCheek.position.y + parts.rightCheek.position.y) / 2;
+      parts.leftCheek.position.set(faceCenterX - 0.25, cheekY, parts.leftCheek.position.z);
+      parts.rightCheek.position.set(faceCenterX + 0.25, cheekY, parts.rightCheek.position.z);
+    }
+  }
+
+  if (isChick && parts.leftEye && parts.rightEye) {
+    const faceCenterX = (parts.leftEye.position.x + parts.rightEye.position.x) / 2;
+    parts.upperBeak.position.x = faceCenterX;
+    parts.upperBeak.position.y = 0.735;
+    parts.upperBeak.scale.x = 0.5;
+    parts.upperBeak.scale.y = 0.52;
+    parts.lowerBeak.position.x = faceCenterX;
+    parts.lowerBeak.position.y = 0.702;
+    parts.lowerBeak.scale.x = 0.36;
+    parts.lowerBeak.scale.y = 0.43;
+  }
+
+  if (!isChick) {
+    const sunglasses = createSunglasses(parts);
+    if (sunglasses) {
+      sunglasses.visible = false;
+      model.add(sunglasses);
+      model.userData.sunglasses = sunglasses;
+    }
+  }
+
   model.userData.parts = parts;
+  model.userData.baseRotationY = isChick ? 0 : 0.1;
   model.userData.baseTransforms = Object.fromEntries(
     Object.entries(parts).map(([key, node]) => [key, captureTransform(node)])
   );
@@ -61,8 +197,9 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
   Object.entries(parts).forEach(([key, node]) => resetTransform(node, base[key]));
 
   const baseY = model.userData.baseY || 0;
+  const baseRotationY = model.userData.baseRotationY || 0;
   model.position.y = baseY + Math.sin(elapsed * 2.0) * 0.025;
-  model.rotation.y = Math.sin(elapsed * 0.55) * 0.055;
+  model.rotation.y = baseRotationY + Math.sin(elapsed * 0.55) * 0.035;
   model.rotation.z = 0;
 
   const blink = Math.sin(elapsed * 0.9) > 0.985 ? 0.12 : 1;
@@ -77,23 +214,20 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
     parts.topFeatherRight.rotation.z += Math.sin(elapsed * 2.0 + 1.0) * 0.06;
   }
 
+  const open = speaking ? (Math.sin(elapsed * 18) + 1) / 2 : 0;
   if (speaking) {
-    const open = (Math.sin(elapsed * 18) + 1) / 2;
     if (parts.upperBeak) {
-      parts.upperBeak.position.y += open * 0.014;
-      parts.upperBeak.rotation.x -= open * 0.07;
+      parts.upperBeak.position.y += open * 0.006;
+      parts.upperBeak.rotation.x -= open * 0.02;
     }
     if (parts.lowerBeak) {
-      parts.lowerBeak.position.y -= open * 0.078;
-      parts.lowerBeak.rotation.x += open * 0.12;
-      parts.lowerBeak.scale.y *= 1 + open * 0.42;
+      parts.lowerBeak.position.y -= open * 0.014;
+      parts.lowerBeak.rotation.x += open * 0.035;
     }
     if (parts.body) {
       parts.body.scale.y *= 1 + open * 0.012;
     }
     if (parts.mouth && !parts.lowerBeak) {
-      parts.mouth.position.y -= open * 0.018;
-      parts.mouth.scale.y *= 1 + open * 0.9;
       if (parts.nose) {
         parts.nose.scale.y *= 1 + open * 0.04;
       }
@@ -109,10 +243,15 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
       parts.leftCheek.scale.x *= 1.14;
       parts.rightCheek.scale.x *= 1.14;
     }
-    if (parts.mouth) {
-      parts.mouth.scale.x *= 1.18;
-      parts.mouth.scale.y *= 1.12;
-    }
+  }
+
+  if (parts.mouth && !parts.lowerBeak) {
+    const isHappy = emotion === "happy" || emotion === "excited";
+    scaleAroundGeometryCenter(parts.mouth, base.mouth, {
+      x: (isHappy ? 1.14 : 1) * (1 - open * 0.04),
+      y: (isHappy ? 1.06 : 1) * (1 + open * 0.28),
+      z: 1,
+    });
   }
 
   if (emotion === "sleepy") {
@@ -128,7 +267,7 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
   }
 
   if (action === "shake_head") {
-    model.rotation.y = Math.sin(elapsed * 8) * 0.14;
+    model.rotation.y = baseRotationY + Math.sin(elapsed * 8) * 0.14;
   }
 
   if (action === "wave" && parts.rightWing) {
@@ -148,16 +287,23 @@ function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
   }
 }
 
-export default function AvatarScene({ emotion, action, speaking, modelPath = "/models/untitled-colored.glb" }) {
+export default function AvatarScene({
+  emotion,
+  action,
+  speaking,
+  modelPath = "/models/untitled-colored.glb",
+  sunglasses = false,
+  verticalOffset = 0,
+}) {
   const containerRef = useRef(null);
   const vrmRef = useRef(null);
   const glbRef = useRef(null);
   const fallbackRef = useRef(null);
-  const latestStateRef = useRef({ emotion, action, speaking });
+  const latestStateRef = useRef({ emotion, action, speaking, sunglasses });
 
   useEffect(() => {
-    latestStateRef.current = { emotion, action, speaking };
-  }, [emotion, action, speaking]);
+    latestStateRef.current = { emotion, action, speaking, sunglasses };
+  }, [emotion, action, speaking, sunglasses]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -229,7 +375,7 @@ export default function AvatarScene({ emotion, action, speaking, modelPath = "/m
         }
         glbRef.current = model;
         model.scale.setScalar(0.9);
-        model.position.y = 0.28;
+        model.position.y = 0.28 + verticalOffset;
         model.userData.baseY = model.position.y;
         prepareGLBAvatar(model);
         const fallback = fallbackRef.current;
@@ -282,7 +428,7 @@ export default function AvatarScene({ emotion, action, speaking, modelPath = "/m
 
       const delta = clock.getDelta();
       const elapsed = clock.elapsedTime;
-      const { emotion, action, speaking } = latestStateRef.current;
+      const { emotion, action, speaking, sunglasses } = latestStateRef.current;
 
       if (vrmRef.current) {
         vrmRef.current.update(delta);
@@ -292,6 +438,9 @@ export default function AvatarScene({ emotion, action, speaking, modelPath = "/m
       }
 
       if (glbRef.current) {
+        if (glbRef.current.userData.sunglasses) {
+          glbRef.current.userData.sunglasses.visible = sunglasses;
+        }
         updateGLBAvatar(glbRef.current, emotion, action, speaking, elapsed);
       }
 
