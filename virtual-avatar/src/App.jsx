@@ -98,9 +98,20 @@ function normalizeLLMResult(result, fallback) {
   };
 }
 
-function createSentenceSplitter(onSentence) {
+function createSentenceSplitter(onSentence, { eagerFirstChunk = false } = {}) {
   let buffer = "";
+  let firstEmitted = false;
   const boundary = /[.!?。！？\n]/;
+  const comma = /[,，、]/;
+  const FIRST_CHUNK_MIN = 6; // 너무 짧은 첫 조각 방지
+  const FIRST_CHUNK_MAX = 20; // 쉼표가 없으면 이 길이에서 끊어 첫 음성을 앞당김
+
+  const emit = (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    onSentence(trimmed);
+    firstEmitted = true;
+  };
 
   return {
     push(delta) {
@@ -108,15 +119,29 @@ function createSentenceSplitter(onSentence) {
       let match;
 
       while ((match = boundary.exec(buffer))) {
-        const sentence = buffer.slice(0, match.index + 1).trim();
+        emit(buffer.slice(0, match.index + 1));
         buffer = buffer.slice(match.index + 1);
-        if (sentence) onSentence(sentence);
+      }
+
+      // 첫 조각만: 문장이 아직 안 끝났어도 쉼표나 일정 길이에서 미리 끊어 합성을 시작한다.
+      if (eagerFirstChunk && !firstEmitted) {
+        const c = comma.exec(buffer);
+        if (c && c.index + 1 >= FIRST_CHUNK_MIN) {
+          emit(buffer.slice(0, c.index + 1));
+          buffer = buffer.slice(c.index + 1);
+        } else if (buffer.trim().length >= FIRST_CHUNK_MAX) {
+          const slice = buffer.slice(0, FIRST_CHUNK_MAX);
+          const lastSpace = slice.lastIndexOf(" ");
+          const cut = lastSpace >= FIRST_CHUNK_MIN ? lastSpace : FIRST_CHUNK_MAX;
+          emit(buffer.slice(0, cut));
+          buffer = buffer.slice(cut);
+        }
       }
     },
     flush() {
       const tail = buffer.trim();
       buffer = "";
-      if (tail) onSentence(tail);
+      emit(tail);
     },
   };
 }
@@ -165,6 +190,8 @@ export default function App() {
   const spokenTextRef = useRef("");
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const audioContextRef = useRef(null);
+  const silenceTimerRef = useRef(null);
   const [clock, setClock] = useState(() => formatClock(new Date()));
 
   useEffect(() => {
@@ -521,7 +548,7 @@ export default function App() {
     const sentenceSplitter = createSentenceSplitter((sentence) => {
       queuedSentence = true;
       enqueueTTS(sentence, ttsGeneration);
-    });
+    }, { eagerFirstChunk: true });
 
     const scenario = activeDemo;
 
@@ -560,6 +587,54 @@ export default function App() {
     runPrompt(userText);
   }
 
+  // 말이 끝나면(일정 시간 침묵) 자동으로 녹음을 멈춰 버튼 재클릭 없이 바로 전사로 넘긴다.
+  function startSilenceDetection(stream) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    audioContextRef.current = ctx;
+    ctx.resume?.().catch(() => {});
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+
+    const SPEAK_RMS = 0.015; // 이 이상이면 발화로 간주
+    const SILENCE_MS = 1200; // 발화 후 이만큼 조용하면 종료
+    const MAX_MS = 15000; // 안전 상한
+    const startedAt = Date.now();
+    let speechStarted = false;
+    let lastLoudAt = Date.now();
+
+    silenceTimerRef.current = window.setInterval(() => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i += 1) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      const now = Date.now();
+      if (rms > SPEAK_RMS) {
+        speechStarted = true;
+        lastLoudAt = now;
+      }
+      const silentLongEnough = speechStarted && now - lastLoudAt > SILENCE_MS;
+      if (silentLongEnough || now - startedAt > MAX_MS) {
+        stopRecording();
+      }
+    }, 100);
+  }
+
+  function stopSilenceDetection() {
+    if (silenceTimerRef.current) {
+      window.clearInterval(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+  }
+
   async function startRecording() {
     if (loading || warming || resetting || transcribing) return;
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -576,6 +651,7 @@ export default function App() {
       };
 
       recorder.onstop = async () => {
+        stopSilenceDetection();
         stream.getTracks().forEach((track) => track.stop());
         setRecording(false);
         const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
@@ -598,6 +674,7 @@ export default function App() {
 
       mediaRecorderRef.current = recorder;
       recorder.start();
+      startSilenceDetection(stream);
       setRecording(true);
     } catch (error) {
       console.info("Microphone unavailable.", error);
@@ -606,6 +683,7 @@ export default function App() {
   }
 
   function stopRecording() {
+    stopSilenceDetection();
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();

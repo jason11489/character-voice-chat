@@ -41,16 +41,20 @@ OpenVoiceV2 레퍼런스로 사용합니다.
 
 ## 음성 입력(STT)
 
-입력창 옆 `🎤 말하기` 버튼을 누르면 마이크 녹음이 시작되고, `■ 정지`를 누르면 녹음을
-TTS 서버의 `POST /stt`로 보내 한국어로 받아쓴 뒤 자동으로 실행(runPrompt)합니다.
-받아쓰기는 맥 TTS 서버에 추가된 faster-whisper가 처리하며 TTS와 같은 서버/포트를 씁니다.
+입력창 옆 `🎤 말하기` 버튼을 누르면 마이크 녹음이 시작되고, **말을 멈추면(약 1.2초 침묵)
+자동으로** 녹음을 끝내 TTS 서버의 `POST /stt`로 보내 한국어로 받아쓴 뒤 바로
+실행(runPrompt)합니다. 버튼을 다시 눌러 수동으로 끝낼 수도 있습니다(침묵 감지는 브라우저
+Web Audio RMS 측정, 안전 상한 15초). 받아쓰기는 맥 TTS 서버에 추가된 faster-whisper가
+처리하며 TTS와 같은 서버/포트를 씁니다.
 
 ```bash
 ../tts-server/venv/bin/python -m pip install -r ../tts-server/requirements-stt.txt
 ```
 
-모델은 `--stt-model`로 바꿀 수 있고(기본 `small`), `POST /stt` 첫 호출 때 한 번만
-다운로드한 뒤 캐시됩니다.
+모델은 `--stt-model`로 바꿀 수 있고(기본 `small`), 서버 시작 시 미리 로드/워밍업해
+첫 요청 지연을 없앱니다(`--no-stt-warmup`으로 끔). 디코딩은 짧은 명령에 맞춰
+greedy(beam_size=1)로 빠르게 도는데, 정확도를 더 원하면 `transcribe()`의 `beam_size`를
+올리면 됩니다.
 
 > ⚠️ 브라우저 마이크(`getUserMedia`)는 보안 컨텍스트에서만 동작합니다. 노트북 본체에서
 > `http://localhost:5173`로 접속하면 그대로 켜지지만, LAN IP(`http://10.x.x.x:5173`)로

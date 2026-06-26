@@ -268,10 +268,23 @@ def transcribe(data: bytes) -> str:
     """마이크 녹음 바이트(webm/opus 등)를 한국어 텍스트로 변환. WHISPER_LOCK 으로 직렬화."""
     with WHISPER_LOCK:
         load_whisper()
+        # 짧은 명령 위주라 greedy(beam_size=1) + 이전 문맥 비참조로 디코딩을 빠르게.
         segments, _ = WHISPER_MODEL.transcribe(
-            io.BytesIO(data), language="ko", beam_size=5, vad_filter=True,
+            io.BytesIO(data), language="ko", beam_size=1,
+            condition_on_previous_text=False, vad_filter=True,
         )
         return "".join(seg.text for seg in segments).strip()
+
+
+def warmup_whisper():
+    """서버 시작 시 모델 로드 + 더미 추론으로 ctranslate2 경로를 데워 첫 요청 지연 제거."""
+    import numpy as np  # type: ignore
+    with WHISPER_LOCK:
+        load_whisper()
+        segments, _ = WHISPER_MODEL.transcribe(
+            np.zeros(16000, dtype=np.float32), language="ko", beam_size=1,
+        )
+        list(segments)  # generator 강제 실행
 
 
 # --------------------------- HTTP 핸들러 ---------------------------
@@ -438,6 +451,9 @@ def main():
     p.add_argument("--stt-model", default="small",
                    help="faster-whisper STT 모델 (tiny/base/small/medium/large-v3). "
                         "POST /stt 첫 호출 시 지연 로딩(최초 1회 다운로드)")
+    p.add_argument("--stt-warmup", action=argparse.BooleanOptionalAction, default=True,
+                   help="서버 시작 시 faster-whisper 미리 로드/워밍업 "
+                        "(기본 켜짐, --no-stt-warmup 으로 끔)")
     ARGS = p.parse_args()
 
     if ARGS.backend == "say":
@@ -469,6 +485,14 @@ def main():
             except Exception as e:
                 print("⚠️ OpenVoiceV2 로드 실패 → 변환 없이 melo 원본 사용:", e)
                 ARGS.voice_convert = None
+    if ARGS.stt_warmup:
+        try:
+            print(f"faster-whisper STT 워밍업({ARGS.stt_model})...")
+            warmup_whisper()
+            print("faster-whisper 워밍업 완료")
+        except Exception as e:
+            print("⚠️ STT 워밍업 건너뜀(첫 /stt 요청 때 로드):", e)
+
     srv = ThreadingHTTPServer((ARGS.host, ARGS.port), Handler)
     active_voice = (
         os.path.splitext(os.path.basename(ARGS.voice_convert))[0]
