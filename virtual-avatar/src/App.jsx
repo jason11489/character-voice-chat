@@ -153,6 +153,7 @@ export default function App() {
   const ttsPumpRef = useRef(null);
   const ttsGenerationRef = useRef(0);
   const ttsOptionsRef = useRef({ rate: 1, voice: "", sdpRatio: 0.5, noiseScaleW: 0.9 });
+  const spokenTextRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -294,28 +295,41 @@ export default function App() {
     });
   }
 
+  function revealSpokenSentence(sentence) {
+    spokenTextRef.current = spokenTextRef.current
+      ? `${spokenTextRef.current} ${sentence}`
+      : sentence;
+    setAvatarText(spokenTextRef.current);
+  }
+
   async function drainTTSQueue(generation) {
     if (ttsPumpRef.current !== null) return;
     ttsPumpRef.current = generation;
-    let pendingAudio = null;
+    let pending = null;
+
+    const dequeue = () => {
+      const text = ttsQueueRef.current.shift();
+      return { text, audio: synthesizeSpeech(text, ttsOptionsRef.current) };
+    };
 
     try {
       await getTTSHealth();
 
       while (
         generation === ttsGenerationRef.current
-        && (pendingAudio || ttsQueueRef.current.length > 0)
+        && (pending || ttsQueueRef.current.length > 0)
       ) {
-        const blob = pendingAudio
-          ? await pendingAudio
-          : await synthesizeSpeech(ttsQueueRef.current.shift(), ttsOptionsRef.current);
-        pendingAudio = null;
+        const current = pending || dequeue();
+        pending = null;
+        const blob = await current.audio;
 
         if (generation !== ttsGenerationRef.current) break;
         if (ttsQueueRef.current.length > 0) {
-          pendingAudio = synthesizeSpeech(ttsQueueRef.current.shift(), ttsOptionsRef.current);
+          pending = dequeue();
         }
 
+        // Reveal this sentence's text exactly as its audio starts playing.
+        revealSpokenSentence(current.text);
         await playAudioBlob(blob, generation);
       }
 
@@ -329,6 +343,7 @@ export default function App() {
         const remaining = ttsQueueRef.current.join(" ");
         ttsQueueRef.current = [];
         if (remaining) {
+          revealSpokenSentence(remaining);
           playBrowserTTS(remaining, estimateSpeechMs(remaining));
         }
       }
@@ -455,8 +470,8 @@ export default function App() {
       window.clearTimeout(speakingTimerRef.current);
     }
     stopAudio();
+    spokenTextRef.current = "";
 
-    setAvatarText(result.text);
     setEmotion(result.emotion);
     setAction(result.action);
     setSpeaking(true);
@@ -464,6 +479,7 @@ export default function App() {
     const generation = ttsGenerationRef.current;
     const sentences = splitSentences(result.text);
     if (sentences.length === 0) {
+      setAvatarText(result.text);
       stopSpeakingAfter(estimateSpeechMs(result.text));
       return;
     }
@@ -481,6 +497,7 @@ export default function App() {
     setSpeaking(false);
     setAvatarText("음... 지금 집 상태랑 일정을 같이 맞춰보는 중이야.");
     stopAudio();
+    spokenTextRef.current = "";
     const ttsGeneration = ttsGenerationRef.current;
     let streamedText = "";
     let queuedSentence = false;
@@ -501,14 +518,12 @@ export default function App() {
         {
         onTextDelta(delta, fullText) {
           streamedText = fullText;
-          setAvatarText(fullText);
           sentenceSplitter.push(delta);
         },
         }
       );
       sentenceSplitter.flush();
       const result = normalizeLLMResult(apiResult, scenario.assistant);
-      setAvatarText(result.text);
       setEmotion(result.emotion);
       setAction(result.action);
       if (!queuedSentence) {
