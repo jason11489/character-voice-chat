@@ -58,6 +58,12 @@ function estimateSpeechMs(text) {
   return Math.max(2600, text.length * 88);
 }
 
+function formatClock(date) {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 function getInitialAvatarId() {
   if (typeof window === "undefined") return "round";
   return new URLSearchParams(window.location.search).get("avatar") === "human" ? "human" : "round";
@@ -77,7 +83,7 @@ function getInitialDemo() {
 function buildScenarioContext(scenario) {
   return {
     scene: scenario.sceneTitle,
-    now: scenario.now,
+    now: formatClock(new Date()),
     data: scenario.data,
     devices: scenario.devices,
   };
@@ -154,6 +160,7 @@ export default function App() {
   const ttsGenerationRef = useRef(0);
   const ttsOptionsRef = useRef({ rate: 1, voice: "", sdpRatio: 0.5, noiseScaleW: 0.9 });
   const spokenTextRef = useRef("");
+  const [clock, setClock] = useState(() => formatClock(new Date()));
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +191,11 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(formatClock(new Date())), 1000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -511,10 +523,7 @@ export default function App() {
     try {
       const apiResult = await askPiLLM(
         trimmed,
-        buildScenarioContext({
-          ...scenario,
-          now: scenario.now,
-        }),
+        buildScenarioContext(scenario),
         {
         onTextDelta(delta, fullText) {
           streamedText = fullText;
@@ -567,7 +576,7 @@ export default function App() {
   }
 
   const selectedAvatar = avatarModels.find((model) => model.id === selectedAvatarId) || avatarModels[0];
-  const displayTime = parseTimeParts(activeDemo.now);
+  const displayTime = parseTimeParts(clock);
   const usedDataCount = activeDemo.data.filter((item) => item.used).length;
 
   return (
