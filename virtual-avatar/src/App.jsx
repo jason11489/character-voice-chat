@@ -178,8 +178,8 @@ export default function App() {
   const [ttsVoices, setTtsVoices] = useState([]);
   const [ttsVoice, setTtsVoice] = useState("");
   const [ttsRate, setTtsRate] = useState(1);
-  const [ttsSdp, setTtsSdp] = useState(0.5);
-  const [ttsNoise, setTtsNoise] = useState(0.9);
+  const [ttsSdp, setTtsSdp] = useState(0.6);
+  const [ttsNoise, setTtsNoise] = useState(1.0);
   const speakingTimerRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef("");
