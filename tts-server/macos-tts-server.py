@@ -17,6 +17,7 @@ WAV를 받기 때문에 브라우저에서 실제 음량 기반 입싱크가 가
 """
 
 import argparse
+import io
 import os
 import re
 import subprocess
@@ -49,6 +50,10 @@ SYNTH_CACHE_LOCK = threading.Lock()
 OV_CONVERTER = None      # ToneColorConverter (지연 로딩)
 OV_SRC_SE = None         # melo KR 화자 임베딩 (kr.pth)
 OV_TGT_CACHE = {}        # {레퍼런스 경로: 추출한 타겟 음색} — 음성별 SE 캐시
+
+# STT(faster-whisper). 마이크 녹음(webm/opus)을 받아 한국어 텍스트로 변환. 지연 로딩.
+WHISPER_MODEL = None
+WHISPER_LOCK = threading.Lock()
 
 MAX_TEXT = 600           # 한 번에 합성할 최대 글자 수(과부하 방지)
 
@@ -241,17 +246,66 @@ def synthesize(text: str, voice: str, rate: float,
         return audio
 
 
+# --------------------------- STT: faster-whisper ---------------------------
+def load_whisper():
+    global WHISPER_MODEL
+    if WHISPER_MODEL is not None:
+        return
+    from faster_whisper import WhisperModel  # type: ignore
+    import huggingface_hub.constants as hf_const  # type: ignore
+    # 최초 1회 모델 다운로드를 위해 HF 오프라인 잠시 해제(이후엔 캐시로 오프라인 동작).
+    # 서버가 import 전에 HF_HUB_OFFLINE=1 을 걸어두므로 env 가 아닌 상수를 직접 토글한다.
+    prev = hf_const.HF_HUB_OFFLINE
+    hf_const.HF_HUB_OFFLINE = False
+    try:
+        WHISPER_MODEL = WhisperModel(ARGS.stt_model, device="cpu", compute_type="int8")
+    finally:
+        hf_const.HF_HUB_OFFLINE = prev
+    print(f"faster-whisper({ARGS.stt_model}) 로드 완료")
+
+
+def transcribe(data: bytes) -> str:
+    """마이크 녹음 바이트(webm/opus 등)를 한국어 텍스트로 변환. WHISPER_LOCK 으로 직렬화."""
+    with WHISPER_LOCK:
+        load_whisper()
+        segments, _ = WHISPER_MODEL.transcribe(
+            io.BytesIO(data), language="ko", beam_size=5, vad_filter=True,
+        )
+        return "".join(seg.text for seg in segments).strip()
+
+
 # --------------------------- HTTP 핸들러 ---------------------------
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def do_OPTIONS(self):
         self.send_response(204)
         self._cors()
         self.end_headers()
+
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path != "/stt":
+            self.send_response(404); self._cors(); self.end_headers()
+            self.wfile.write(b"not found")
+            return
+
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        data = self.rfile.read(length) if length > 0 else b""
+        if not data:
+            self._send_error(400, "missing audio")
+            return
+
+        try:
+            text = transcribe(data)
+        except Exception as e:
+            self._send_error(500, f"STT 오류: {e}")
+            return
+
+        self._send_json({"text": text})
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -270,6 +324,7 @@ class Handler(BaseHTTPRequestHandler):
                 "cached_sentences": len(SYNTH_CACHE),
                 "melo_sdp_ratio": MELO_SDP_RATIO,
                 "melo_noise_scale_w": MELO_NOISE_SCALE_W,
+                "stt_model": ARGS.stt_model,
             })
             return
         if parsed.path == "/voices":
@@ -380,6 +435,9 @@ def main():
                         "여기 파일들이 UI 음성 드롭다운에 뜬다")
     p.add_argument("--serve-dir", default=None,
                    help="정적 파일 디렉터리(chat-ui.html 위치). 지정하면 페이지+TTS를 한 서버에서 제공")
+    p.add_argument("--stt-model", default="small",
+                   help="faster-whisper STT 모델 (tiny/base/small/medium/large-v3). "
+                        "POST /stt 첫 호출 시 지연 로딩(최초 1회 다운로드)")
     ARGS = p.parse_args()
 
     if ARGS.backend == "say":

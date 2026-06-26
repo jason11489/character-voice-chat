@@ -39,6 +39,37 @@ sh ../tts-server/patch-melo-macos.sh
 Melo 서버는 기본적으로 `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`를
 OpenVoiceV2 레퍼런스로 사용합니다.
 
+## 음성 입력(STT)
+
+입력창 옆 `🎤 말하기` 버튼을 누르면 마이크 녹음이 시작되고, `■ 정지`를 누르면 녹음을
+TTS 서버의 `POST /stt`로 보내 한국어로 받아쓴 뒤 자동으로 실행(runPrompt)합니다.
+받아쓰기는 맥 TTS 서버에 추가된 faster-whisper가 처리하며 TTS와 같은 서버/포트를 씁니다.
+
+```bash
+../tts-server/venv/bin/python -m pip install -r ../tts-server/requirements-stt.txt
+```
+
+모델은 `--stt-model`로 바꿀 수 있고(기본 `small`), `POST /stt` 첫 호출 때 한 번만
+다운로드한 뒤 캐시됩니다.
+
+> ⚠️ 브라우저 마이크(`getUserMedia`)는 보안 컨텍스트에서만 동작합니다. 노트북 본체에서
+> `http://localhost:5173`로 접속하면 그대로 켜지지만, LAN IP(`http://10.x.x.x:5173`)로
+> 접속하면 막힙니다. 폰·다른 기기에서 마이크를 쓰려면 아래 HTTPS 모드로 띄우세요.
+
+### 다른 기기(폰 등)에서 마이크 쓰기 — HTTPS 모드
+
+`npm run dev`는 `vite.config.js`에서 자가서명 인증서로 **HTTPS** dev 서버를 띄웁니다.
+HTTPS 페이지는 http 백엔드를 직접 호출할 수 없어(mixed content), vite가 두 백엔드를
+서버사이드에서 프록시합니다:
+
+- `/v1`, `/reset` → 라즈베리파이 LLM(`VITE_PI_API_BASE`)
+- `/health`, `/voices`, `/tts`, `/stt` → 맥 TTS/STT 서버(`VITE_TTS_API_BASE`, 기본 `localhost:8080`)
+
+폰에서 `https://<맥IP>:5173`로 접속하면 자가서명 경고가 한 번 뜹니다. "계속/방문"을
+누르면 보안 컨텍스트가 되어 마이크가 열리고, TTS·STT·LLM 호출은 모두 프록시를 탑니다.
+(HTTPS 접속일 때 프론트는 same-origin 상대경로로 호출하므로 `VITE_*_API_BASE`는 프록시
+타깃으로만 쓰입니다.)
+
 ## VRM 모델
 
 `public/models/momo.vrm`에 VRM 파일을 넣으면 실제 3D 캐릭터가 로드됩니다.  

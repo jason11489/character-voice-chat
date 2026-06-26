@@ -397,11 +397,19 @@ export function resetLLMSession(context) {
   }).catch(() => {});
 }
 
+// HTTPS 로 띄운 dev 서버(LAN 마이크용)에서는 http 백엔드를 직접 fetch 할 수 없으므로
+// same-origin 상대경로로 호출해 vite 프록시(vite.config.js)를 타게 한다.
+function isProxiedHttps() {
+  return typeof window !== "undefined" && window.location.protocol === "https:";
+}
+
 export function getApiBase() {
+  if (isProxiedHttps()) return "";
   return getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
 }
 
 export function getTtsApiBase() {
+  if (isProxiedHttps()) return "";
   const fallback = typeof window === "undefined"
     ? "http://localhost:8080"
     : `${window.location.protocol}//${window.location.hostname}:8080`;

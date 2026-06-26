@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
 import { askPiLLM, getApiBase, warmupLLM, resetLLMSession } from "./api/llmApi.js";
 import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
+import { transcribeAudio } from "./api/sttApi.js";
 import SpeechBubble from "./ui/SpeechBubble.jsx";
 import { demoEvents } from "./mock/demoEvents.js";
 
@@ -141,6 +142,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [warming, setWarming] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [llmState, setLlmState] = useState("ready");
   const [ttsState, setTtsState] = useState("idle");
@@ -160,6 +163,8 @@ export default function App() {
   const ttsGenerationRef = useRef(0);
   const ttsOptionsRef = useRef({ rate: 1, voice: "", sdpRatio: 0.5, noiseScaleW: 0.9 });
   const spokenTextRef = useRef("");
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const [clock, setClock] = useState(() => formatClock(new Date()));
 
   useEffect(() => {
@@ -555,6 +560,63 @@ export default function App() {
     runPrompt(userText);
   }
 
+  async function startRecording() {
+    if (loading || warming || resetting || transcribing) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorText("마이크는 localhost 또는 HTTPS에서만 켜집니다. (현재 주소가 http LAN IP면 막힙니다)");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false);
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+        if (blob.size === 0) return;
+
+        setTranscribing(true);
+        try {
+          const text = await transcribeAudio(blob);
+          if (text) {
+            setUserText(text);
+            runPrompt(text);
+          }
+        } catch (error) {
+          console.info("STT unavailable.", error);
+          setErrorText(`STT 실패: ${error.message}`);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch (error) {
+      console.info("Microphone unavailable.", error);
+      setErrorText(`마이크 사용 불가: ${error.message}`);
+    }
+  }
+
+  function stopRecording() {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  }
+
+  function toggleRecording() {
+    if (recording) stopRecording();
+    else startRecording();
+  }
+
   async function handleResetSession() {
     if (loading || resetting) return;
     setResetting(true);
@@ -598,6 +660,16 @@ export default function App() {
             onChange={(e) => setUserText(e.target.value)}
             placeholder="예: 나 집에 왔어"
           />
+          <button
+            className={recording ? "mic-button is-recording" : "mic-button"}
+            type="button"
+            onClick={toggleRecording}
+            disabled={loading || warming || resetting || transcribing}
+            aria-pressed={recording}
+            title="음성으로 말하기"
+          >
+            {transcribing ? "인식 중" : recording ? "■ 정지" : "🎤 말하기"}
+          </button>
           <button className="primary-button" type="submit" disabled={loading || warming || resetting}>
             {warming ? "준비 중" : loading ? "분석 중" : "실행"}
           </button>
