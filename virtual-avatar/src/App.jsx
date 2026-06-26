@@ -134,6 +134,7 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [warming, setWarming] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [llmState, setLlmState] = useState("ready");
   const [ttsState, setTtsState] = useState("idle");
@@ -185,7 +186,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    warmupLLM(buildScenarioContext(demoEvents[0]));
+    setLlmState("warming");
+    warmupLLM(buildScenarioContext(demoEvents[0])).finally(() => {
+      setWarming(false);
+      setLlmState("ready");
+    });
   }, []);
 
   useEffect(() => {
@@ -467,7 +472,7 @@ export default function App() {
 
   async function runPrompt(text) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || warming || resetting) return;
 
     setLoading(true);
     setErrorText("");
@@ -569,14 +574,14 @@ export default function App() {
             onChange={(e) => setUserText(e.target.value)}
             placeholder="예: 나 집에 왔어"
           />
-          <button className="primary-button" type="submit" disabled={loading}>
-            {loading ? "분석 중" : "실행"}
+          <button className="primary-button" type="submit" disabled={loading || warming || resetting}>
+            {warming ? "준비 중" : loading ? "분석 중" : "실행"}
           </button>
           <button
             className="ghost-button"
             type="button"
             onClick={handleResetSession}
-            disabled={loading || resetting}
+            disabled={loading || warming || resetting}
           >
             {resetting ? "초기화 중" : "세션 초기화"}
           </button>
