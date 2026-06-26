@@ -60,6 +60,15 @@ function resetSession() {
   session.contextSent = false;
 }
 
+// Clear the inference server's conversation cache (dllama-api POST /reset).
+// Best-effort: a hung server won't answer, so it must not block the reset.
+function resetServerSession() {
+  return fetch(`${getApiBase()}/reset`, {
+    method: "POST",
+    signal: AbortSignal.timeout(3000),
+  }).catch(() => {});
+}
+
 // distributed-llama keeps a single global KV-cache lineage, so overlapping
 // requests would clobber each other's cached prefix. Serialize them.
 let requestChain = Promise.resolve();
@@ -324,6 +333,7 @@ async function askOnce(userText, context, options) {
   // re-prefills the system prompt from scratch and re-sends the latest context
   // as a fresh keyframe.
   if (session.tokens + userTokens + RESPONSE_TOKEN_BUDGET > MAX_SEQ_LEN * RESET_RATIO) {
+    await resetServerSession();
     resetSession();
     includeContext = true;
     content = buildUserPrompt(userText, context);
@@ -377,9 +387,11 @@ export function warmupLLM(context) {
   return serialize(() => primeContext(context)).catch(() => {});
 }
 
-// Clear the multi-turn session and re-prime with the latest context.
+// Clear the multi-turn session (server cache + client history) and re-prime
+// with the latest context.
 export function resetLLMSession(context) {
   return serialize(async () => {
+    await resetServerSession();
     resetSession();
     await primeContext(context);
   }).catch(() => {});
