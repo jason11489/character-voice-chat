@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chat Character · Lip-sync Demo</title>
+<style>
+  :root { color-scheme: dark; }
+  html,body { margin:0; height:100%; background:#1b1e26; font-family: system-ui, sans-serif; color:#e8eaed; }
+  #app { position:fixed; inset:0; }
+  #ui {
+    position:fixed; left:16px; bottom:16px; display:flex; flex-direction:column; gap:8px;
+    background:rgba(0,0,0,.45); padding:14px 16px; border-radius:12px; backdrop-filter:blur(6px);
+    max-width:320px; font-size:13px; line-height:1.4;
+  }
+  #ui button {
+    cursor:pointer; border:0; border-radius:8px; padding:9px 12px; font-size:13px; font-weight:600;
+    background:#5b8cff; color:#fff;
+  }
+  #ui button.secondary { background:#3a3f4b; color:#e8eaed; }
+  #ui label { font-size:12px; opacity:.8; }
+  #ui input[type=file]{ font-size:12px; }
+  #status { opacity:.7; font-size:12px; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="ui">
+  <strong>말하는 챗 캐릭터 데모</strong>
+  <div class="row">
+    <button id="simulate">말하기 시뮬레이션</button>
+    <button id="stop" class="secondary">정지</button>
+  </div>
+  <label>TTS 음성 파일로 립싱크 (mp3/wav):</label>
+  <input id="audioFile" type="file" accept="audio/*" />
+  <div id="status">로딩 중…</div>
+</div>
+
+<!-- three.js (ES modules via CDN) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const statusEl = document.getElementById('status');
+
+// ---------- scene ----------
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2f3a);
+
+const camera = new THREE.PerspectiveCamera(35, innerWidth/innerHeight, 0.1, 100);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// soft 3-point-ish lighting (the GLB has no lights; we light here)
+scene.add(new THREE.HemisphereLight(0xffffff, 0x404050, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(2,3,4); scene.add(key);
+const rim = new THREE.DirectionalLight(0xbcd2ff, 1.0); rim.position.set(-3,2,-2); scene.add(rim);
+
+// ---------- morph targets ----------
+const mouthMeshes = [];   // meshes that have a "MouthOpen" morph
+const blinkMeshes = [];   // meshes that have a "Blink" morph
+function indexOfMorph(mesh, name){
+  const d = mesh.morphTargetDictionary;
+  return (d && name in d) ? d[name] : -1;
+}
+
+const loader = new GLTFLoader();
+loader.load('./chat_character.glb', (gltf) => {
+  const root = gltf.scene;
+  scene.add(root);
+
+  root.traverse(o => {
+    if (!o.isMesh || !o.morphTargetDictionary) return;
+    if (indexOfMorph(o, 'MouthOpen') >= 0) mouthMeshes.push(o);
+    if (indexOfMorph(o, 'Blink')     >= 0) blinkMeshes.push(o);
+  });
+
+  // frame the camera on the head, looking at the face (face points +Z after export)
+  const box = new THREE.Box3().setFromObject(root);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const dist = Math.max(size.x, size.y) * 2.2;
+  // bias target toward the upper part (the face) so it's nicely framed
+  const target = center.clone(); target.y += size.y * 0.12;
+  controls.target.copy(target);
+  camera.position.set(target.x, target.y, target.z + dist);
+  camera.near = dist/50; camera.far = dist*50; camera.updateProjectionMatrix();
+  controls.update();
+
+  statusEl.textContent =
+    `준비 완료 · 입 모프 ${mouthMeshes.length}개 / 깜빡임 ${blinkMeshes.length}개`;
+}, undefined, (err) => {
+  statusEl.textContent = 'GLB 로드 실패 — chat_character.glb 를 이 HTML과 같은 폴더에 두고 로컬 서버로 열어주세요.';
+  console.error(err);
+});
+
+function setMouth(v){ // 0..1
+  for (const m of mouthMeshes) m.morphTargetInfluences[indexOfMorph(m,'MouthOpen')] = v;
+}
+function setBlink(v){ // 0..1
+  for (const m of blinkMeshes) m.morphTargetInfluences[indexOfMorph(m,'Blink')] = v;
+}
+
+// ---------- lip-sync from audio amplitude ----------
+let audioCtx, analyser, timeData, sourceNode;
+const audioEl = new Audio();
+audioEl.crossOrigin = 'anonymous';
+
+function ensureAudioGraph(){
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  timeData = new Uint8Array(analyser.frequencyBinCount);
+  sourceNode = audioCtx.createMediaElementSource(audioEl);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+function audioLevel(){
+  if (!analyser) return 0;
+  analyser.getByteTimeDomainData(timeData);
+  let sum = 0;
+  for (let i=0;i<timeData.length;i++){ const v=(timeData[i]-128)/128; sum += v*v; }
+  return Math.sqrt(sum/timeData.length); // RMS ~0..1
+}
+
+// play a TTS audio file (this is where your LLM's TTS output goes)
+function playAudioSrc(url){
+  ensureAudioGraph();
+  audioCtx.resume();
+  audioEl.src = url;
+  audioEl.play();
+  mode = 'audio';
+}
+
+document.getElementById('audioFile').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) playAudioSrc(URL.createObjectURL(f));
+});
+
+// ---------- "simulate" mode (no audio file needed, just to see it move) ----------
+let mode = 'idle';           // 'idle' | 'audio' | 'sim'
+let simUntil = 0, simSeed = 0;
+document.getElementById('simulate').onclick = () => {
+  mode = 'sim'; simUntil = performance.now() + 3500; simSeed = Math.random()*1000;
+};
+document.getElementById('stop').onclick = () => {
+  mode='idle'; try{ audioEl.pause(); }catch(_){}
+};
+
+function simLevel(t){
+  // a babbling envelope: overlapping sines + gate, looks like speech
+  const x = t*0.012 + simSeed;
+  let v = (Math.sin(x*2.1)+Math.sin(x*3.7)+Math.sin(x*6.3))/3;
+  v = Math.abs(v);
+  const gate = (Math.sin(x*0.7) > -0.3) ? 1 : 0.05; // occasional pauses
+  return v*gate;
+}
+
+// ---------- blink scheduler ----------
+let blinkVal = 0, blinkPhase = 'open', blinkT = 0, nextBlink = performance.now()+2000;
+function updateBlink(now, dt){
+  if (blinkPhase==='open' && now>=nextBlink){ blinkPhase='closing'; blinkT=0; }
+  const speed = 7; // per second
+  if (blinkPhase==='closing'){ blinkVal += speed*dt; if (blinkVal>=1){blinkVal=1; blinkPhase='opening';} }
+  else if (blinkPhase==='opening'){ blinkVal -= speed*dt; if (blinkVal<=0){blinkVal=0; blinkPhase='open'; nextBlink=now+(2000+Math.random()*4000);} }
+  setBlink(blinkVal);
+}
+
+// ---------- main loop ----------
+let mouthCur = 0, last = performance.now();
+const GAIN = 2.4;        // amplitude -> mouth-open scaling
+const MAX_OPEN = 0.9;    // cap so the mouth never gapes fully
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+
+  let level = 0;
+  if (mode==='audio' && !audioEl.paused) level = audioLevel();
+  else if (mode==='sim'){ if (now<simUntil) level = simLevel(now); else mode='idle'; }
+
+  const targetOpen = Math.min(MAX_OPEN, level*GAIN);
+  // smooth so it doesn't jitter
+  mouthCur += (targetOpen - mouthCur) * (targetOpen>mouthCur ? 0.6 : 0.25);
+  setMouth(mouthCur);
+
+  updateBlink(now, dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============================================================
+   실제 LLM 챗에 붙일 때:
+   1) LLM 답변 텍스트를 TTS API로 보내 음성(mp3/wav 또는 스트림 URL)을 받는다.
+   2) playAudioSrc(ttsUrl) 를 호출한다  ← 입이 음성 볼륨에 맞춰 자동으로 움직임.
+   예)
+     const res = await fetch('/api/tts', {method:'POST', body: JSON.stringify({text})});
+     const blob = await res.blob();
+     playAudioSrc(URL.createObjectURL(blob));
+   ============================================================ */
+</script>
+</body>
+</html>
