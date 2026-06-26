@@ -103,8 +103,10 @@ function createSentenceSplitter(onSentence, { eagerFirstChunk = false } = {}) {
   let firstEmitted = false;
   const boundary = /[.!?。！？\n]/;
   const comma = /[,，、]/;
-  const FIRST_CHUNK_MIN = 6; // 너무 짧은 첫 조각 방지
-  const FIRST_CHUNK_MAX = 20; // 쉼표가 없으면 이 길이에서 끊어 첫 음성을 앞당김
+  // 합성 시간 ∝ 글자 수(고정 floor ~0.5s)라, 첫 조각만 최대한 짧게 끊어 첫 음성을 앞당긴다.
+  // MIN=3 이면 "좋아,"/"그래," 같은 선두 추임새 쉼표에서 바로 끊긴다(이후 조각은 문장 단위).
+  const FIRST_CHUNK_MIN = 3; // 너무 짧은 첫 조각 방지(최소 글자)
+  const FIRST_CHUNK_MAX = 14; // 쉼표가 없으면 이 길이에서 끊어 첫 음성을 앞당김
 
   const emit = (text) => {
     const trimmed = text.trim();
