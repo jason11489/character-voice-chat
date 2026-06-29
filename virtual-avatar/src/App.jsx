@@ -1172,7 +1172,7 @@ export default function App() {
                 {resetting ? "초기화 중" : "세션 초기화"}
               </button>
               <button
-                className="ghost-button ghost-button--sm"
+                className="ghost-button"
                 type="button"
                 onClick={handleResetDevices}
                 disabled={loading || warming || resetting}
