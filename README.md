@@ -139,6 +139,47 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py \
 
 라즈베리파이(ARM 리눅스) 셋업은 `PI-HANDOFF.md` 참고.
 
+## 머신별 실행 (라즈베리파이 vs 맥북)
+
+STT 모델·CPU 스레드 수를 머신에 맞춰 `--profile` 한 줄로 분리합니다.
+명시 인자(`--stt-model`, `--cpu-threads`)를 주면 프로파일 값을 덮어씁니다.
+
+| 프로파일 | STT 모델 | CPU 스레드 | 용도 |
+|----------|----------|-----------|------|
+| `pi` (기본) | `tiny` | 2 | 라즈베리파이(4코어). 가볍고 빠름 |
+| `laptop` | `small` | 전체 코어 | 맥북 등. 더 정확한 인식 |
+
+> 참고: 라즈베리파이에선 스레드를 코어 수만큼 늘리면 busy-wait 로 오히려 느려져서 2로 고정합니다(측정 결과). `OMP_WAIT_POLICY=passive` 도 서버가 자동 설정합니다.
+
+### 라즈베리파이 (경량)
+
+venv 는 루트 `.venv`. `--profile pi` 가 기본이라 생략해도 `tiny` 로 뜹니다.
+
+```bash
+cd ~/character-voice-chat
+.venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo \
+  --serve-dir virtual-avatar/dist \
+  --port 8080
+```
+
+마이크(STT)는 보안 컨텍스트가 필요하므로 **파이 본체의 로컬 브라우저**로 `http://localhost:8080/` 을 띄우세요(원격 기기에서 `http://<IP>:8080` 으로 열면 마이크가 막힘).
+
+### 맥북 (조금 더 좋은 모델)
+
+venv 는 루트 `.venv`. `--profile laptop` 으로 `small` + 전체 코어를 씁니다.
+
+```bash
+cd ~/character-voice-chat
+.venv/bin/python tts-server/macos-tts-server.py \
+  --profile laptop \
+  --backend melo \
+  --serve-dir virtual-avatar/dist \
+  --port 8080
+```
+
+> STT 모델은 첫 실행 시 자동 다운로드됩니다. 오프라인 환경이면 `tts-server/fetch-models.sh` 로 미리 받아두세요.
+
 ## 자주 헷갈리는 부분
 
 ### `venv`는 무엇을 쓰나

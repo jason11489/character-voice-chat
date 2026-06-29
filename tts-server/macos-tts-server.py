@@ -31,6 +31,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+# 라즈베리파이(4코어)에서 ctranslate2/torch 스레드를 코어 수만큼 늘리면 busy-wait 로
+# 오히려 더 느려지고 CPU 만 태워 다른 단계(TTS·브라우저)를 굶긴다. 스레드를 2로 제한하고
+# 유휴 스레드는 잠들게(passive) 해서 wall time 단축 + CPU 낭비 제거.
+os.environ.setdefault("OMP_WAIT_POLICY", "passive")
+CPU_THREADS = 2          # STT/TTS CPU 스레드 기본값(main 에서 --profile/--cpu-threads 로 확정)
+
+# 머신별 프리셋: 라즈베리파이와 노트북의 STT 모델·스레드 수를 분리해 둔다.
+PROFILES = {
+    "pi":     {"stt_model": "tiny",  "cpu_threads": 2},                  # 4코어, 측정상 2가 최적
+    "laptop": {"stt_model": "small", "cpu_threads": os.cpu_count() or 4},
+}
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MELO_VOICE = os.path.join(
@@ -111,6 +122,9 @@ def load_melo():
     if MELO_TTS is not None:
         return
     from melo.api import TTS  # type: ignore
+    import torch  # type: ignore
+    # 라즈베리파이: 스레드를 코어 수만큼 늘리면 busy-wait 로 역효과. CPU_THREADS(2)로 제한.
+    torch.set_num_threads(CPU_THREADS)
     device = "auto"            # Apple Silicon 이면 MPS 자동 선택
     MELO_TTS = TTS(language="KR", device=device)
     MELO_SPEAKER = MELO_TTS.hps.data.spk2id  # {'KR': 0}
@@ -259,7 +273,8 @@ def load_whisper():
     prev = hf_const.HF_HUB_OFFLINE
     hf_const.HF_HUB_OFFLINE = False
     try:
-        WHISPER_MODEL = WhisperModel(ARGS.stt_model, device="cpu", compute_type="int8")
+        WHISPER_MODEL = WhisperModel(ARGS.stt_model, device="cpu", compute_type="int8",
+                                     cpu_threads=CPU_THREADS)
     finally:
         hf_const.HF_HUB_OFFLINE = prev
     print(f"faster-whisper({ARGS.stt_model}) 로드 완료")
@@ -466,13 +481,30 @@ def main():
                         "여기 파일들이 UI 음성 드롭다운에 뜬다")
     p.add_argument("--serve-dir", default=None,
                    help="정적 파일 디렉터리(chat-ui.html 위치). 지정하면 페이지+TTS를 한 서버에서 제공")
-    p.add_argument("--stt-model", default="small",
+    # 머신별 프리셋. Pi(4코어, 느림)와 노트북(코어 많음)의 STT 모델·스레드 수를 분리.
+    # --stt-model / --cpu-threads 를 명시하면 프로파일 값을 덮어쓴다.
+    p.add_argument("--profile", choices=list(PROFILES), default="pi",
+                   help="머신 프리셋: pi(tiny/2스레드) | laptop(base/전체코어). 기본 pi")
+    p.add_argument("--stt-model", default=None,
                    help="faster-whisper STT 모델 (tiny/base/small/medium/large-v3). "
-                        "POST /stt 첫 호출 시 지연 로딩(최초 1회 다운로드)")
+                        "미지정 시 --profile 기본값. POST /stt 첫 호출 시 지연 로딩")
+    p.add_argument("--cpu-threads", type=int, default=None,
+                   help="STT/TTS CPU 스레드 수. 미지정 시 --profile 기본값 "
+                        "(Pi 는 2가 최적, 늘리면 busy-wait 로 역효과)")
     p.add_argument("--stt-warmup", action=argparse.BooleanOptionalAction, default=True,
                    help="서버 시작 시 faster-whisper 미리 로드/워밍업 "
                         "(기본 켜짐, --no-stt-warmup 으로 끔)")
     ARGS = p.parse_args()
+
+    # 프로파일 기본값 적용(명시 인자가 우선) + CPU_THREADS 전역 확정
+    global CPU_THREADS
+    prof = PROFILES[ARGS.profile]
+    if ARGS.stt_model is None:
+        ARGS.stt_model = prof["stt_model"]
+    if ARGS.cpu_threads is None:
+        ARGS.cpu_threads = prof["cpu_threads"]
+    CPU_THREADS = ARGS.cpu_threads
+    print(f"[profile={ARGS.profile}] STT={ARGS.stt_model}  CPU_THREADS={CPU_THREADS}")
 
     if ARGS.backend == "say":
         names = [v["name"] for v in list_say_voices()]

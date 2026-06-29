@@ -1,5 +1,6 @@
 # Python venv (MeloTTS, torch 등 — 수 GB, 재설치로 복원)
 tts-server/venv/
+.venv/
 
 # OpenVoiceV2 (클론 repo + 체크포인트 — 재다운로드로 복원)
 tts-server/openvoice-src/

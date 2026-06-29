@@ -1183,7 +1183,7 @@ body,
   right: 24px;
   bottom: 84px;
   z-index: 6;
-  width: min(500px, 44vw);
+  width: min(360px, 30vw);
   overflow: hidden;
   border: 1px solid rgba(35, 87, 67, 0.12);
   border-radius: 14px;
