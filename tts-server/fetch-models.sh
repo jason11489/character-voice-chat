@@ -55,10 +55,10 @@ PYEOF
 
 # 4) STT(faster-whisper small) + OpenVoice 워터마크(wavmark) 모델 prefetch
 #    둘 다 서버 기동 시 HF 에서 받으려다 오프라인이면 실패하므로 여기서 미리 받는다.
-echo "[get] faster-whisper(small) + wavmark prefetch..."
+echo "[get] faster-whisper(base) + wavmark prefetch..."
 "$PY" - <<'PYEOF'
 from huggingface_hub import snapshot_download
-snapshot_download("Systran/faster-whisper-small")   # STT (--stt-model 기본값 small)
+snapshot_download("Systran/faster-whisper-base")    # STT (--stt-model 기본값 base)
 import wavmark                                        # OpenVoice convert() 워터마크 모델
 wavmark.load_model()
 print("  wavmark ok")

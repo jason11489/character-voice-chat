@@ -1,38 +1,44 @@
 # 캐릭터 음성 채팅
 
-3D 캐릭터와 음성으로 대화하는 앱입니다. 실행 방식은 두 가지입니다.
+3D 캐릭터와 음성으로 대화하는 앱입니다.
 
-**개발(맥)**: 프론트와 TTS를 따로 띄웁니다.
+- **STT** (마이크 → 텍스트): faster-whisper
+- **LLM** (텍스트 → 답변): 외부 HTTP 서버 (라즈베리파이 등)
+- **TTS** (답변 → 음성): MeloTTS + OpenVoiceV2 음색 변환
+
+브라우저가 LLM에 `POST /v1/chat/completions`로 연결하고, 완성된 문장부터 TTS 서버로
+보내 순서대로 재생합니다. 마이크 입력은 `POST /stt`로 텍스트로 변환합니다.
+
+## 구성
 
 | 역할 | 서버 | 기본 주소 |
 |---|---|---|
-| LLM | 외부 서버 또는 라즈베리파이 | `http://<LLM_IP>:9999` |
-| TTS+STT | `tts-server/macos-tts-server.py` | `http://localhost:8080` |
-| 프론트 | `virtual-avatar/` Vite 개발 서버 | `http://localhost:5173` |
+| LLM | 외부 서버 / 라즈베리파이 | `http://<LLM_IP>:9999` |
+| TTS + STT | `tts-server/macos-tts-server.py` | `http://localhost:8080` |
+| 프론트 | `virtual-avatar/` (Vite) | `http://localhost:5173` |
 
-**통합(배포, 라즈베리파이)**: TTS 서버 한 프로세스가 STT·TTS·UI를 모두 `:8080`에서 서빙합니다.
-LLM만 외부 박스에 둡니다. ([통합 실행](#통합-실행-배포-한-서버로-sttttsui) 참고)
+실행 방식은 두 가지입니다.
 
-브라우저는 LLM에 `POST /v1/chat/completions`로 연결하고, 완성된 문장부터
-TTS 서버에 보내 순서대로 재생합니다. 마이크 입력은 `POST /stt`로 텍스트로 변환합니다.
+- **개발**: 프론트(Vite)와 TTS 서버를 따로 띄움 → [실행 A](#실행-a-개발-프론트--tts-분리)
+- **통합/배포**: TTS 서버 한 프로세스가 STT·TTS·UI를 모두 `:8080`에서 서빙 → [실행 B](#실행-b-통합-한-서버--권장)
 
-## 처음 받은 사람용 셋업
+---
+
+## 설치 (최초 1회)
 
 ### 1. 사전 준비
 
-- macOS
+- macOS 또는 라즈베리파이(ARM 리눅스)
 - Node.js 18 이상
 - Python 3.11
-- 라즈베리파이 또는 다른 LLM HTTP 서버 주소
-
-확인 명령:
+- LLM HTTP 서버 주소 (라즈베리파이 등)
 
 ```bash
 node -v
 python3.11 --version
 ```
 
-### 2. 프론트 설치
+### 2. 프론트
 
 ```bash
 cd virtual-avatar
@@ -40,148 +46,141 @@ npm install
 cp .env.example .env
 ```
 
-`virtual-avatar/.env`를 열어서 실제 서버 주소로 수정합니다.
+`virtual-avatar/.env`를 실제 주소로 수정합니다.
 
 ```env
-VITE_PI_API_BASE=http://10.56.130.224:9999
-VITE_LLM_MODEL=distributed-llama
-VITE_LLM_STREAM=true
-VITE_TTS_API_BASE=http://localhost:8080
+VITE_PI_API_BASE=http://10.56.130.224:9999   # LLM 주소
+VITE_LLM_MODEL=distributed-llama             # LLM 서버가 받는 모델 이름
+VITE_LLM_STREAM=true                         # 스트리밍 사용
+VITE_TTS_API_BASE=http://localhost:8080      # TTS 서버 (통합 실행이면 비워둠)
 ```
 
-설명:
+### 3. Python 환경 (`.venv`)
 
-- `VITE_PI_API_BASE`: 라즈베리파이 LLM 주소
-- `VITE_LLM_MODEL`: LLM 서버가 받는 모델 이름
-- `VITE_LLM_STREAM`: 스트리밍 사용 여부
-- `VITE_TTS_API_BASE`: 현재 맥에서 띄울 TTS 서버 주소
-
-### 3. TTS Python venv 생성
-
-루트에서 실행합니다.
+루트에서 실행합니다. **TTS(melo)와 STT(faster-whisper) 둘 다** 설치해야 합니다.
 
 ```bash
-python3.11 -m venv tts-server/venv
-tts-server/venv/bin/pip install --upgrade pip
-tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
-sh tts-server/patch-melo-macos.sh
+python3.11 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r tts-server/requirements-melo.txt   # TTS
+.venv/bin/pip install -r tts-server/requirements-stt.txt    # STT
 ```
 
-`patch-melo-macos.sh`는 macOS에서 한국어 `mecab` 충돌을 피하기 위한 패치입니다.
-
-### 4. TTS 모델/레퍼런스 확인
-
-현재 기본 음성 레퍼런스는 아래 파일입니다.
-
-`voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
-
-기본 실행은 MeloTTS + OpenVoiceV2 음색 변환 기준입니다. 첫 실행 전에 관련 모델이
-로컬에 준비되어 있어야 합니다. OpenVoice 소스/체크포인트와 MeloTTS 모델은 git에 포함되지 않으니
-(용량 문제) venv 설치 후 아래 스크립트로 받습니다.
+macOS는 한국어 `mecab` 충돌 패치를 추가로 실행합니다.
 
 ```bash
+.venv/bin/pip uninstall -y mecab-python3
+.venv/bin/pip install --force-reinstall --no-deps python-mecab-ko python-mecab-ko-dic
+```
+
+### 4. 모델 받기
+
+MeloTTS·OpenVoice 모델과 체크포인트는 용량 때문에 git에 없습니다. 활성화된 `.venv`로 받습니다.
+
+```bash
+source .venv/bin/activate
 sh tts-server/fetch-models.sh
 ```
 
-### 5. 실행
+기본 음색 레퍼런스: `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
 
-터미널 1:
+---
 
-```bash
-./run-tts.sh
-```
+## 실행 A: 개발 (프론트 + TTS 분리)
 
-터미널 2:
+터미널 2개를 씁니다.
 
 ```bash
-cd virtual-avatar
-npm run dev
+# 터미널 1 — TTS 서버
+.venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo --serve-dir virtual-avatar/dist --port 8080
+
+# 터미널 2 — 프론트(Vite)
+cd virtual-avatar && npm run dev
 ```
 
-브라우저:
+브라우저: `http://localhost:5173` (같은 Wi-Fi의 다른 기기는 `http://<맥IP>:5173`)
 
-```text
-http://localhost:5173
-```
+## 실행 B: 통합 (한 서버) — 권장
 
-같은 Wi-Fi의 다른 기기에서는 `http://<맥IP>:5173`으로 접속할 수 있습니다.
-
-## 실행 순서 체크리스트
-
-1. `virtual-avatar/.env`에 LLM 주소 입력
-2. `tts-server/venv` 생성 및 의존성 설치
-3. `./run-tts.sh`로 TTS 실행
-4. `cd virtual-avatar && npm run dev`
-5. 브라우저에서 `http://localhost:5173` 접속
-
-## 통합 실행 (배포: 한 서버로 STT+TTS+UI)
-
-라즈베리파이 등에 배포할 때는 프론트를 빌드해서 TTS 서버가 함께 서빙합니다.
-한 프로세스가 `:8080`에서 UI·TTS·STT를 모두 처리하므로 같은 오리진이라 CORS/HTTPS 설정이 없어도 됩니다.
+프론트를 빌드하면 TTS 서버가 UI까지 같은 `:8080`에서 서빙합니다. 같은 오리진이라
+CORS/HTTPS 설정이 필요 없습니다.
 
 ```bash
-# 1) 프론트 빌드 (UI 코드 바뀔 때마다 다시)
-cd virtual-avatar && npm run build
+# 1) 프론트 빌드 (UI 코드 바뀔 때마다)
+cd virtual-avatar && npm run build && cd ..
 
-# 2) TTS 서버가 빌드 결과까지 서빙 (한 줄로 STT+TTS+UI 기동)
-cd ..
-tts-server/venv/bin/python tts-server/macos-tts-server.py \
-  --backend melo \
-  --serve-dir virtual-avatar/dist \
-  --port 8080
+# 2) 한 줄로 STT + TTS + UI 기동
+.venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo --serve-dir virtual-avatar/dist --port 8080
 ```
 
-브라우저로 `http://localhost:8080/` 접속. 마이크(STT)는 보안 컨텍스트가 필요한데
-`localhost`는 예외라 http로도 동작합니다. (다른 기기에서 `http://<IP>:8080`으로 열면 마이크가 막히니 키오스크는 그 기기의 로컬 브라우저로 띄우세요.)
+브라우저: `http://localhost:8080/`
 
-주의: 프론트의 TTS 주소 자동탐색이 `<호스트>:8080`을 쓰므로 **포트는 8080으로 고정**합니다.
-`virtual-avatar/.env`의 `VITE_TTS_API_BASE`는 비워두고, `VITE_PI_API_BASE`만 외부 LLM 주소로 둡니다.
+> **마이크(STT)** 는 보안 컨텍스트가 필요합니다. `localhost`는 예외라 http로도 되지만,
+> 다른 기기에서 `http://<IP>:8080`으로 열면 마이크가 막힙니다 → **서버 본체의 로컬 브라우저**로 띄우세요.
+>
+> **포트는 8080 고정.** 프론트가 TTS 주소를 `<호스트>:8080`으로 자동탐색하므로,
+> `.env`의 `VITE_TTS_API_BASE`는 비워두고 `VITE_PI_API_BASE`(LLM)만 채웁니다.
 
-라즈베리파이(ARM 리눅스) 셋업은 `PI-HANDOFF.md` 참고.
+### 머신별 프로파일
 
-## 자주 헷갈리는 부분
+`--profile` 한 줄로 STT 모델·CPU 스레드 수를 머신에 맞춰 분리합니다.
+(`--stt-model`, `--cpu-threads`를 직접 주면 덮어씀)
 
-### `venv`는 무엇을 쓰나
+| 프로파일 | STT 모델 | CPU 스레드 | 용도 |
+|---|---|---|---|
+| `pi` (기본) | `tiny` | 2 | 라즈베리파이(4코어). 가볍고 빠름 |
+| `laptop` | `small` | 전체 코어 | 맥북 등. 더 정확한 인식 |
 
-- 실제 사용 중인 Python 가상환경: `tts-server/venv`
-- 실행 파일: `tts-server/venv/bin/python`
-- 편의 실행 스크립트: `./run-tts.sh`
+```bash
+# 라즈베리파이 — --profile pi 가 기본이라 생략 가능
+.venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo --serve-dir virtual-avatar/dist --port 8080
 
-### `pi-llm-server`도 실행해야 하나
+# 맥북
+.venv/bin/python tts-server/macos-tts-server.py \
+  --profile laptop --backend melo --serve-dir virtual-avatar/dist --port 8080
+```
 
-현재 이 레포에서 실제로 쓰는 LLM 경로는 `virtual-avatar/.env`의
-`VITE_PI_API_BASE`입니다. 즉, 프론트는 지정한 외부 HTTP LLM 서버에 직접 붙습니다.
+> 라즈베리파이는 스레드를 코어 수만큼 늘리면 busy-wait로 오히려 느려져 2로 고정합니다(측정 결과).
+> `OMP_WAIT_POLICY=passive`도 서버가 자동 설정합니다.
 
-`pi-llm-server/` 폴더는 지금 기준으로 실행 엔트리 파일이 없고 `.env`, `.venv`만 남아
-있어서, 처음 받은 사람은 셋업 대상에서 제외해도 됩니다.
+---
+
+## 옵션
+
+다른 레퍼런스 음성으로 바꾸기:
+
+```bash
+.venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo --serve-dir virtual-avatar/dist --port 8080 \
+  --voice-convert "voice/스파이패밀리 아냐 목소리 대사 모음.mp3"
+```
+
+음색 변환 없이(빠름) macOS 기본 음성으로 확인만:
+
+```bash
+.venv/bin/python tts-server/macos-tts-server.py --backend say --voice Yuna --port 8080
+```
 
 ## TTS 동작 요약
 
-- 기본 백엔드: `melo`
-- 기본 음색: `Teemo` 샘플
-- 음색 변환: `OpenVoiceV2`
-- API: `GET /health`, `GET /tts?text=...&rate=1.0`
-- 서버 캐시: 최근 64개 문장 WAV
-- 프론트 캐시: 자주 쓰는 문장 Blob 캐시
+- 기본 백엔드 `melo`, 기본 음색 `Teemo` 샘플, 음색 변환 `OpenVoiceV2`
+- API: `GET /health`, `GET /tts?text=...&rate=1.0`, `POST /stt`
+- 캐시: 서버는 최근 64개 문장 WAV, 프론트는 자주 쓰는 문장 Blob
 
-다른 레퍼런스 음성으로 바꾸려면:
+## 자주 헷갈리는 부분
 
-```bash
-tts-server/venv/bin/python tts-server/macos-tts-server.py \
-  --backend melo \
-  --voice-convert "voice/스파이패밀리 아냐 목소리 대사 모음.mp3" \
-  --port 8080 \
-  --serve-dir virtual-avatar/dist
-```
+**venv 경로** — Python 가상환경은 루트 `.venv` 하나로 통일했습니다 (`.venv/bin/python`).
+편의 스크립트 `./run-tts.sh`는 옛 `tts-server/venv` 경로를 가정하므로, `.venv` 환경에선
+위의 `.venv/bin/python ...` 명령을 직접 쓰세요.
 
-macOS 기본 `say` 백엔드로 확인만 빠르게 하려면:
-
-```bash
-./run-tts.sh --backend say --voice Yuna
-```
+**`pi-llm-server`** — 실행 대상 아님. 프론트는 `.env`의 `VITE_PI_API_BASE`로 외부 LLM에
+직접 붙습니다. `pi-llm-server/` 폴더는 엔트리 파일이 없어 셋업에서 제외해도 됩니다.
 
 ## 참고
 
-- TTS 서버에 `--serve-dir virtual-avatar/dist`를 주면 `http://localhost:8080/`에서 UI를 함께 서빙합니다(통합 실행).
-- 레거시 단일 HTML 버전 `chat-ui.html`도 있지만 현재 프론트는 `virtual-avatar/`입니다.
-- 프론트 스트리밍/TTS 큐 설명은 `virtual-avatar/README.md`에 있습니다.
+- 라즈베리파이(ARM 리눅스) 상세 셋업: `PI-HANDOFF.md`
+- 프론트 스트리밍/TTS 큐 설명: `virtual-avatar/README.md`
+- 레거시 단일 HTML `chat-ui.html`도 있지만 현재 프론트는 `virtual-avatar/`입니다.
