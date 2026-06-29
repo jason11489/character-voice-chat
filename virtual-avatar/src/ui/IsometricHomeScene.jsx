@@ -265,7 +265,7 @@ function addSofa(group, x, z, rotationY = 0) {
 // 스타일러: 로컬 +z가 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
 function addStyler(group, x, z, rotationY, stylerOn, stylerStatus) {
   const styler = new THREE.Group();
-  addBox(styler, { size: [0.88, 1.62, 0.44], position: [0, 0.81, 0], material: createMaterial(0x1f2328, { roughness: 0.36, emissive: stylerOn ? 0x2a3a50 : 0x000000, emissiveIntensity: stylerOn ? 0.2 : 0 }) });
+  addBox(styler, { size: [0.88, 1.62, 0.44], position: [0, 0.81, 0], material: createMaterial(stylerOn ? 0x2a3848 : 0x141618, { roughness: 0.36, emissive: stylerOn ? 0x3060a0 : 0x000000, emissiveIntensity: stylerOn ? 0.55 : 0 }) });
   addBox(styler, { size: [0.62, 1.5, 0.05], position: [0.09, 0.86, 0.25], material: createMaterial(0xe9e1d3, { roughness: 0.42 }) });
   addBox(styler, { size: [0.14, 1.5, 0.055], position: [-0.32, 0.86, 0.26], material: createMaterial(0x15191f, { roughness: 0.32 }) });
   addBox(styler, { size: [0.74, 0.035, 0.08], position: [0.02, 1.63, 0.27], material: createMaterial(0x111318), castShadow: false });
@@ -283,7 +283,7 @@ function addStyler(group, x, z, rotationY, stylerOn, stylerStatus) {
 // 워시타워: 로컬 +z가 드럼 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
 function addWashTower(group, x, z, rotationY, washerTowerOn, washerStatus) {
   const tower = new THREE.Group();
-  addBox(tower, { size: [0.58, 1.18, 0.36], position: [0, 0.59, 0], material: createMaterial(washerTowerOn ? 0xf1f5f8 : 0xc5cdd4, { emissive: washerTowerOn ? 0xd8eaf8 : 0x000000, emissiveIntensity: washerTowerOn ? 0.12 : 0 }) });
+  addBox(tower, { size: [0.58, 1.18, 0.36], position: [0, 0.59, 0], material: createMaterial(washerTowerOn ? 0xf1f5f8 : 0x8a98a8, { emissive: washerTowerOn ? 0xa8d4f8 : 0x000000, emissiveIntensity: washerTowerOn ? 0.45 : 0 }) });
   addCylinder(tower, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [0, 0.93, 0.19], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
   addCylinder(tower, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [0, 0.35, 0.19], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
   addStatusLight(tower, { position: [0.27, 1.1, 0.20], color: getStatusColor(washerStatus), active: washerTowerOn, size: [0.09, 0.025, 0.02] });
@@ -363,13 +363,13 @@ function addRoomModel(scene, scenario) {
   addWindow(root, -1.75, 1.38, -2.48, "x");
   addWindow(root, 0.95, 1.38, -2.48, "x");
 
-  addBox(root, { size: [1.9, 0.04, 1.12], position: [0.3, 0.035, 0.58], material: rug, castShadow: false });
-  addSofa(root, 0.3, 1.02, Math.PI);
-  addBox(root, { size: [0.82, 0.18, 0.5], position: [0.48, 0.28, 0.22], material: white });
-  addBox(root, { size: [0.3, 0.46, 0.3], position: [1.02, 0.24, 0.38], material: white });
-  addCylinder(root, { radiusTop: 0.32, radiusBottom: 0.32, height: 0.08, position: [1.28, 0.48, 0.5], material: white });
-  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.5, position: [1.28, 0.25, 0.5], material: gold });
-  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.06, position: [1.28, 0.03, 0.5], material: gold });
+  addBox(root, { size: [1.9, 0.04, 1.12], position: [0.55, 0.035, 0.58], material: rug, castShadow: false });
+  addSofa(root, 0.55, 1.02, Math.PI);
+  addBox(root, { size: [0.82, 0.18, 0.5], position: [0.73, 0.28, 0.22], material: white });
+  addBox(root, { size: [0.3, 0.46, 0.3], position: [1.27, 0.24, 0.38], material: white });
+  addCylinder(root, { radiusTop: 0.32, radiusBottom: 0.32, height: 0.08, position: [1.53, 0.48, 0.5], material: white });
+  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.5, position: [1.53, 0.25, 0.5], material: gold });
+  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.06, position: [1.53, 0.03, 0.5], material: gold });
 
   addBox(root, { size: [1.38, 0.52, 0.48], position: [-1.66, 0.26, 0.12], material: white });
   addBox(root, { size: [0.62, 0.06, 0.34], position: [-1.98, 0.55, 0.12], material: createMaterial(0x151515, { roughness: 0.32 }) });
@@ -452,7 +452,7 @@ function addRoomModel(scene, scenario) {
     radiusBottom: 0.26,
     height: 0.86,
     position: [1.34, 0.43, -1.98],
-    material: createMaterial(airOn ? 0xf1f5f2 : 0xbec8c4, { emissive: airOn ? 0xd0ebe0 : 0x000000, emissiveIntensity: airOn ? 0.14 : 0 }),
+    material: createMaterial(airOn ? 0xf1f5f2 : 0x7a8a88, { emissive: airOn ? 0x60e0b0 : 0x000000, emissiveIntensity: airOn ? 0.5 : 0 }),
     segments: 36,
   });
   addStatusLight(root, { position: [1.34, 0.86, -1.77], color: getStatusColor(airStatus), active: airOn, size: [0.13, 0.04, 0.02] });
@@ -461,7 +461,7 @@ function addRoomModel(scene, scenario) {
     radiusBottom: 0.2,
     height: 0.62,
     position: [1.76, 0.31, -1.94],
-    material: createMaterial(dehumidifierOn ? 0xe9eef1 : 0xbcc4cc, { emissive: dehumidifierOn ? 0xd0e4f0 : 0x000000, emissiveIntensity: dehumidifierOn ? 0.12 : 0 }),
+    material: createMaterial(dehumidifierOn ? 0xe9eef1 : 0x7a8896, { emissive: dehumidifierOn ? 0x80c8f8 : 0x000000, emissiveIntensity: dehumidifierOn ? 0.45 : 0 }),
     segments: 36,
   });
   addStatusLight(root, { position: [1.76, 0.63, -1.76], color: getStatusColor(statusOf("제습기")), active: dehumidifierOn, size: [0.1, 0.03, 0.02] });
