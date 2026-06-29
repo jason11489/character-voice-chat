@@ -3,7 +3,7 @@ import AvatarScene from "./avatar/AvatarScene.jsx";
 import { askPiLLM, getApiBase, warmupLLM, resetLLMSession } from "./api/llmApi.js";
 import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import { transcribeAudio } from "./api/sttApi.js";
-import SpeechBubble from "./ui/SpeechBubble.jsx";
+import { connectAudioElement } from "./avatar/audioLipSync.js";
 import { demoEvents } from "./mock/demoEvents.js";
 
 const avatarModels = [
@@ -18,7 +18,7 @@ const avatarModels = [
     id: "human",
     label: "보스베이비",
     name: "보스베이비",
-    modelPath: "/models/human-cute.glb",
+    modelPath: "/models/chat_character.glb",
   },
 ];
 
@@ -45,6 +45,32 @@ function AnalogClock({ time }) {
       <span className="clock-hand minute-hand" style={{ transform: `rotate(${minuteRotation}deg)` }} />
       <span className="clock-pin" />
       <span className="clock-digital">{time.label}</span>
+    </div>
+  );
+}
+
+function ChatWindow({ messages, liveAvatarText }) {
+  const scrollRef = useRef(null);
+  const items = liveAvatarText
+    ? [...messages, { id: "live", role: "avatar", text: liveAvatarText }]
+    : messages;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, liveAvatarText]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="chat-window">
+      <div className="chat-scroll" ref={scrollRef}>
+        {items.map((message) => (
+          <div className={`chat-msg chat-${message.role}`} key={message.id}>
+            <div className="chat-bubble">{message.text}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -160,6 +186,11 @@ export default function App() {
   const initialDemo = initialDemoRef.current;
   const [selectedAvatarId, setSelectedAvatarId] = useState(getInitialAvatarId);
   const [bossBabySunglasses, setBossBabySunglasses] = useState(getInitialSunglasses);
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [messages, setMessages] = useState(() => [
+    { id: 0, role: "user", text: initialDemo.userText },
+  ]);
+  const messageIdRef = useRef(1);
   const [activeDemo, setActiveDemo] = useState(initialDemo);
   const [userText, setUserText] = useState(initialDemo.userText);
   const [avatarText, setAvatarText] = useState(initialDemo.assistant.text);
@@ -314,6 +345,7 @@ export default function App() {
       const audio = new Audio(url);
       audioRef.current = audio;
       audioUrlRef.current = url;
+      connectAudioElement(audio);
       let settled = false;
 
       const cleanup = () => {
@@ -481,6 +513,7 @@ export default function App() {
       const audio = new Audio(url);
       audioRef.current = audio;
       audioUrlRef.current = url;
+      connectAudioElement(audio);
 
       audio.onplay = () => {
         setSpeaking(true);
@@ -532,10 +565,24 @@ export default function App() {
     sentences.forEach((sentence) => enqueueTTS(sentence, generation));
   }
 
+  // 새 발화를 시작할 때, 직전 아바타 답변을 히스토리에 굳히고 사용자 말을 쌓는다.
+  function pushUserTurn(userMessage) {
+    const previousReply = avatarText;
+    setMessages((prev) => {
+      const next = [...prev];
+      if (previousReply) {
+        next.push({ id: (messageIdRef.current += 1), role: "avatar", text: previousReply });
+      }
+      next.push({ id: (messageIdRef.current += 1), role: "user", text: userMessage });
+      return next;
+    });
+  }
+
   async function runPrompt(text) {
     const trimmed = text.trim();
     if (!trimmed || loading || warming || resetting) return;
 
+    pushUserTurn(trimmed);
     setLoading(true);
     setErrorText("");
     setEmotion("thinking");
@@ -713,6 +760,8 @@ export default function App() {
 
   function applyDemo(demo) {
     setActiveDemo(demo);
+    pushUserTurn(demo.userText);
+    setAvatarText("");
     setUserText(demo.userText);
     speak(demo.assistant);
   }
@@ -722,8 +771,18 @@ export default function App() {
   const usedDataCount = activeDemo.data.filter((item) => item.used).length;
 
   return (
-    <div className="app-shell">
-      <section className="demo-panel" aria-label="사용 데이터와 스케줄러">
+    <div className={panelOpen ? "app-shell" : "app-shell panel-collapsed"}>
+      <button
+        className="panel-toggle"
+        type="button"
+        onClick={() => setPanelOpen((open) => !open)}
+        aria-expanded={panelOpen}
+        aria-label="정보 패널 열기/닫기"
+      >
+        {panelOpen ? "✕" : "☰"}
+      </button>
+
+      <section className={panelOpen ? "demo-panel" : "demo-panel is-hidden"} aria-label="사용 데이터와 스케줄러">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Boss Home Command</p>
@@ -732,36 +791,6 @@ export default function App() {
           </div>
           <AnalogClock time={displayTime} />
         </div>
-
-        <form className="prompt-row" onSubmit={handleSubmit}>
-          <input
-            className="input-box"
-            value={userText}
-            onChange={(e) => setUserText(e.target.value)}
-            placeholder="예: 나 집에 왔어"
-          />
-          <button
-            className={recording ? "mic-button is-recording" : "mic-button"}
-            type="button"
-            onClick={toggleRecording}
-            disabled={loading || warming || resetting || transcribing}
-            aria-pressed={recording}
-            title="음성으로 말하기"
-          >
-            {transcribing ? "인식 중" : recording ? "■ 정지" : "🎤 말하기"}
-          </button>
-          <button className="primary-button" type="submit" disabled={loading || warming || resetting}>
-            {warming ? "준비 중" : loading ? "분석 중" : "실행"}
-          </button>
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={handleResetSession}
-            disabled={loading || warming || resetting}
-          >
-            {resetting ? "초기화 중" : "세션 초기화"}
-          </button>
-        </form>
 
         <div className="mode-tabs" role="tablist" aria-label="대화 모드">
           {demoEvents.map((demo) => (
@@ -960,9 +989,41 @@ export default function App() {
           <strong>{selectedAvatar.name}</strong>
           <small>{activeDemo.devices.length}개 가전 지휘 중</small>
         </div>
-      </section>
 
-      <SpeechBubble text={avatarText} />
+        <ChatWindow messages={messages} liveAvatarText={avatarText} />
+
+        <div className="avatar-dock">
+          <form className="prompt-row" onSubmit={handleSubmit}>
+            <input
+              className="input-box"
+              value={userText}
+              onChange={(e) => setUserText(e.target.value)}
+              placeholder="예: 나 집에 왔어"
+            />
+            <button
+              className={recording ? "mic-button is-recording" : "mic-button"}
+              type="button"
+              onClick={toggleRecording}
+              disabled={loading || warming || resetting || transcribing}
+              aria-pressed={recording}
+              title="음성으로 말하기"
+            >
+              {transcribing ? "인식 중" : recording ? "■ 정지" : "🎤 말하기"}
+            </button>
+            <button className="primary-button" type="submit" disabled={loading || warming || resetting}>
+              {warming ? "준비 중" : loading ? "분석 중" : "실행"}
+            </button>
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={handleResetSession}
+              disabled={loading || warming || resetting}
+            >
+              {resetting ? "초기화 중" : "세션 초기화"}
+            </button>
+          </form>
+        </div>
+      </section>
 
       {errorText && <div className="error-box">{errorText}</div>}
     </div>

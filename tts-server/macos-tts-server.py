@@ -18,6 +18,7 @@ WAV를 받기 때문에 브라우저에서 실제 음량 기반 입싱크가 가
 
 import argparse
 import io
+import mimetypes
 import os
 import re
 import subprocess
@@ -287,6 +288,21 @@ def warmup_whisper():
         list(segments)  # generator 강제 실행
 
 
+def static_content_type(path):
+    """정적 파일 Content-Type. JS 모듈은 MIME 가 틀리면 브라우저가 실행을 거부하므로 명시 지정."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".js", ".mjs"):
+        return "text/javascript; charset=utf-8"
+    if ext == ".glb":
+        return "model/gltf-binary"
+    ctype, _ = mimetypes.guess_type(path)
+    if ctype is None:
+        return "application/octet-stream"
+    if ctype.startswith("text/") or ctype == "application/json":
+        ctype += "; charset=utf-8"
+    return ctype
+
+
 # --------------------------- HTTP 핸들러 ---------------------------
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
@@ -391,17 +407,17 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(audio)
 
     def _serve_static(self, path):
-        # 디렉터리 탈출 방지 후 파일 서빙. "/" 는 chat-ui.html 로.
+        # 디렉터리 탈출 방지 후 파일 서빙. "/" 는 SPA 진입점 index.html 로.
         rel = urllib.parse.unquote(path).lstrip("/")
         if rel == "":
-            rel = "chat-ui.html"
+            rel = "index.html"
         base = os.path.realpath(ARGS.serve_dir)
         full = os.path.realpath(os.path.join(base, rel))
         if not full.startswith(base) or not os.path.isfile(full):
             self.send_response(404); self._cors(); self.end_headers()
             self.wfile.write(b"not found")
             return
-        ctype = "text/html; charset=utf-8" if full.endswith(".html") else "application/octet-stream"
+        ctype = static_content_type(full)
         with open(full, "rb") as f:
             data = f.read()
         self.send_response(200)
@@ -501,8 +517,8 @@ def main():
     )
     print(f"🔊 TTS 서버 시작: http://{ARGS.host}:{ARGS.port}  (backend={ARGS.backend}, voice={active_voice})")
     if ARGS.serve_dir:
-        print(f"🌐 페이지도 서빙: http://<맥IP>:{ARGS.port}/chat-ui.html  (dir={os.path.realpath(ARGS.serve_dir)})")
-        print("   → 같은 서버라 TTS 호출이 동일 오리진(CORS 걱정 없음). chat-ui 의 TTS 서버 칸은 비워두거나 같은 주소로.")
+        print(f"🌐 페이지도 서빙: http://<서버IP>:{ARGS.port}/  (dir={os.path.realpath(ARGS.serve_dir)})")
+        print("   → 같은 서버라 TTS 호출이 동일 오리진(CORS 걱정 없음). UI 의 TTS 서버 주소는 비워두거나 같은 주소로.")
     else:
         print("   chat-ui 에 이 맥의 IP:포트를 'TTS 서버' 칸에 넣으세요 (예: http://10.56.x.x:5050)")
     try:

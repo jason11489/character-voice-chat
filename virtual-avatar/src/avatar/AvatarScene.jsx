@@ -5,6 +5,7 @@ import { loadGLB } from "./loadGLB";
 import { applyEmotion } from "./emotionController";
 import { applyMotion } from "./motionController";
 import { createFallbackMascot, updateFallbackMascot } from "./fallbackMascot";
+import { sampleAudioLevel, audioGraphReady } from "./audioLipSync";
 
 function captureTransform(node) {
   if (!node) return null;
@@ -106,11 +107,31 @@ function createSunglasses(parts) {
 
 function prepareGLBAvatar(model) {
   const byName = {};
+  const mouthMeshes = [];
+  const blinkMeshes = [];
   model.traverse((node) => {
     if (node.name) {
       byName[node.name] = node;
     }
+    if (node.isMesh && node.morphTargetDictionary) {
+      if ("MouthOpen" in node.morphTargetDictionary) mouthMeshes.push(node);
+      if ("Blink" in node.morphTargetDictionary) blinkMeshes.push(node);
+    }
   });
+
+  // 모프 타깃(MouthOpen/Blink)으로 만든 캐릭터는 오디오 진폭 립싱크로 따로 구동한다.
+  if (mouthMeshes.length || blinkMeshes.length) {
+    const sunglasses = createSunglasses({ leftEye: byName.LeftEye, rightEye: byName.RightEye });
+    if (sunglasses) {
+      sunglasses.visible = false;
+      model.add(sunglasses);
+      model.userData.sunglasses = sunglasses;
+    }
+    model.userData.morphDriven = true;
+    model.userData.morph = { mouthMeshes, blinkMeshes };
+    model.userData.baseRotationY = 0.1;
+    return;
+  }
 
   const parts = {
     body: byName.Body,
@@ -190,7 +211,113 @@ function prepareGLBAvatar(model) {
   );
 }
 
-function updateGLBAvatar(model, emotion, action, speaking, elapsed) {
+function updateMorphAvatar(model, emotion, action, speaking, elapsed, audioLevel, dt) {
+  const { mouthMeshes, blinkMeshes } = model.userData.morph;
+
+  const baseY = model.userData.baseY || 0;
+  const baseRotationY = model.userData.baseRotationY || 0;
+
+  // ---- 랜덤 시선/배회: 가만히 있을 땐 여기저기 둘러보고 좌우로 조금 움직이다가,
+  //      말할 땐 정면으로 돌아온다 ----
+  let targetYaw;
+  let targetPitch;
+  let targetX;
+  if (speaking) {
+    targetYaw = 0;
+    targetPitch = 0;
+    targetX = 0;
+  } else {
+    if (elapsed >= (model.userData.nextGazeAt ?? 0)) {
+      model.userData.gazeTargetYaw = (Math.random() - 0.5) * 0.7; // 좌우 둘러보기
+      model.userData.gazeTargetPitch = (Math.random() - 0.5) * 0.12; // 위/아래
+      model.userData.wanderTargetX = (Math.random() - 0.5) * 0.24; // 좌우 배회
+      model.userData.nextGazeAt = elapsed + 1.4 + Math.random() * 2.6;
+    }
+    targetYaw = model.userData.gazeTargetYaw ?? 0;
+    targetPitch = model.userData.gazeTargetPitch ?? 0;
+    targetX = model.userData.wanderTargetX ?? 0;
+  }
+
+  const ease = speaking ? 0.06 : 0.025; // 말할 땐 정면으로 더 빨리 복귀
+  const yaw = (model.userData.gazeYaw ?? 0) + (targetYaw - (model.userData.gazeYaw ?? 0)) * ease;
+  const pitch = (model.userData.gazePitch ?? 0) + (targetPitch - (model.userData.gazePitch ?? 0)) * ease;
+  const driftX = (model.userData.wanderX ?? 0) + (targetX - (model.userData.wanderX ?? 0)) * ease;
+  model.userData.gazeYaw = yaw;
+  model.userData.gazePitch = pitch;
+  model.userData.wanderX = driftX;
+
+  model.position.x = driftX;
+  model.position.y = baseY + Math.sin(elapsed * 2.0) * 0.02;
+  model.rotation.y = baseRotationY + yaw + Math.sin(elapsed * 0.5) * 0.015;
+  model.rotation.x = pitch;
+  model.rotation.z = 0;
+  if (emotion === "thinking" || action === "thinking") {
+    model.rotation.z = 0.02 + Math.sin(elapsed * 1.5) * 0.015;
+  }
+  if (action === "shake_head") {
+    model.rotation.y = baseRotationY + Math.sin(elapsed * 8) * 0.12;
+  }
+
+  // ---- 입(MouthOpen): 말할 때 오디오 진폭에 맞춰 연다 ----
+  const GAIN = 2.4; // 진폭 -> 입 벌림 배율
+  const MAX_OPEN = 0.9; // 너무 크게 벌어지지 않도록 상한
+  let target = 0;
+  if (speaking) {
+    if (audioGraphReady()) {
+      // 실제 음성 진폭으로 — 단어 사이 묵음에선 자연스럽게 입이 닫힌다.
+      target = Math.min(MAX_OPEN, audioLevel * GAIN);
+    } else {
+      // 웹오디오 그래프가 없을 때(브라우저 TTS 등)는 옹알이 엔벨로프로 대체.
+      const x = elapsed * 12;
+      const v = Math.abs((Math.sin(x * 2.1) + Math.sin(x * 3.7) + Math.sin(x * 6.3)) / 3);
+      const gate = Math.sin(x * 0.7) > -0.3 ? 1 : 0.08;
+      target = Math.min(MAX_OPEN, v * gate);
+    }
+  }
+  const cur = model.userData.mouthCur ?? 0;
+  const next = cur + (target - cur) * (target > cur ? 0.6 : 0.25); // 떨림 방지 스무딩
+  model.userData.mouthCur = next;
+  for (const mesh of mouthMeshes) {
+    const idx = mesh.morphTargetDictionary.MouthOpen;
+    if (idx !== undefined) mesh.morphTargetInfluences[idx] = next;
+  }
+
+  // ---- 깜빡임(Blink) 스케줄러 ----
+  let blinkVal = model.userData.blinkVal ?? 0;
+  let phase = model.userData.blinkPhase || "open";
+  let nextBlink = model.userData.nextBlink ?? elapsed + 2;
+  const speed = 7; // 초당 진행 속도
+  if (phase === "open" && elapsed >= nextBlink) phase = "closing";
+  if (phase === "closing") {
+    blinkVal += speed * dt;
+    if (blinkVal >= 1) {
+      blinkVal = 1;
+      phase = "opening";
+    }
+  } else if (phase === "opening") {
+    blinkVal -= speed * dt;
+    if (blinkVal <= 0) {
+      blinkVal = 0;
+      phase = "open";
+      nextBlink = elapsed + 2 + Math.random() * 4;
+    }
+  }
+  model.userData.blinkVal = blinkVal;
+  model.userData.blinkPhase = phase;
+  model.userData.nextBlink = nextBlink;
+
+  for (const mesh of blinkMeshes) {
+    const idx = mesh.morphTargetDictionary.Blink;
+    if (idx !== undefined) mesh.morphTargetInfluences[idx] = blinkVal;
+  }
+}
+
+function updateGLBAvatar(model, emotion, action, speaking, elapsed, audioLevel, dt) {
+  if (model.userData.morphDriven) {
+    updateMorphAvatar(model, emotion, action, speaking, elapsed, audioLevel, dt);
+    return;
+  }
+
   const parts = model.userData.parts || {};
   const base = model.userData.baseTransforms || {};
 
@@ -441,7 +568,8 @@ export default function AvatarScene({
         if (glbRef.current.userData.sunglasses) {
           glbRef.current.userData.sunglasses.visible = sunglasses;
         }
-        updateGLBAvatar(glbRef.current, emotion, action, speaking, elapsed);
+        const audioLevel = sampleAudioLevel();
+        updateGLBAvatar(glbRef.current, emotion, action, speaking, elapsed, audioLevel, delta);
       }
 
       if (fallbackRef.current) {

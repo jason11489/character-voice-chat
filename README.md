@@ -1,15 +1,20 @@
 # 캐릭터 음성 채팅
 
-3D 캐릭터와 음성으로 대화하는 앱입니다. 현재 구조는 아래처럼 나뉩니다.
+3D 캐릭터와 음성으로 대화하는 앱입니다. 실행 방식은 두 가지입니다.
+
+**개발(맥)**: 프론트와 TTS를 따로 띄웁니다.
 
 | 역할 | 서버 | 기본 주소 |
 |---|---|---|
 | LLM | 외부 서버 또는 라즈베리파이 | `http://<LLM_IP>:9999` |
-| TTS | 맥에서 실행하는 `tts-server/macos-tts-server.py` | `http://localhost:8080` |
+| TTS+STT | `tts-server/macos-tts-server.py` | `http://localhost:8080` |
 | 프론트 | `virtual-avatar/` Vite 개발 서버 | `http://localhost:5173` |
 
-브라우저는 라즈베리파이 LLM에 `POST /v1/chat/completions`로 연결하고, 완성된 문장부터
-맥 TTS 서버에 보내 순서대로 재생합니다.
+**통합(배포, 라즈베리파이)**: TTS 서버 한 프로세스가 STT·TTS·UI를 모두 `:8080`에서 서빙합니다.
+LLM만 외부 박스에 둡니다. ([통합 실행](#통합-실행-배포-한-서버로-sttttsui) 참고)
+
+브라우저는 LLM에 `POST /v1/chat/completions`로 연결하고, 완성된 문장부터
+TTS 서버에 보내 순서대로 재생합니다. 마이크 입력은 `POST /stt`로 텍스트로 변환합니다.
 
 ## 처음 받은 사람용 셋업
 
@@ -71,7 +76,12 @@ sh tts-server/patch-melo-macos.sh
 `voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
 
 기본 실행은 MeloTTS + OpenVoiceV2 음색 변환 기준입니다. 첫 실행 전에 관련 모델이
-로컬에 준비되어 있어야 합니다.
+로컬에 준비되어 있어야 합니다. OpenVoice 소스/체크포인트와 MeloTTS 모델은 git에 포함되지 않으니
+(용량 문제) venv 설치 후 아래 스크립트로 받습니다.
+
+```bash
+sh tts-server/fetch-models.sh
+```
 
 ### 5. 실행
 
@@ -103,6 +113,31 @@ http://localhost:5173
 3. `./run-tts.sh`로 TTS 실행
 4. `cd virtual-avatar && npm run dev`
 5. 브라우저에서 `http://localhost:5173` 접속
+
+## 통합 실행 (배포: 한 서버로 STT+TTS+UI)
+
+라즈베리파이 등에 배포할 때는 프론트를 빌드해서 TTS 서버가 함께 서빙합니다.
+한 프로세스가 `:8080`에서 UI·TTS·STT를 모두 처리하므로 같은 오리진이라 CORS/HTTPS 설정이 없어도 됩니다.
+
+```bash
+# 1) 프론트 빌드 (UI 코드 바뀔 때마다 다시)
+cd virtual-avatar && npm run build
+
+# 2) TTS 서버가 빌드 결과까지 서빙 (한 줄로 STT+TTS+UI 기동)
+cd ..
+tts-server/venv/bin/python tts-server/macos-tts-server.py \
+  --backend melo \
+  --serve-dir virtual-avatar/dist \
+  --port 8080
+```
+
+브라우저로 `http://localhost:8080/` 접속. 마이크(STT)는 보안 컨텍스트가 필요한데
+`localhost`는 예외라 http로도 동작합니다. (다른 기기에서 `http://<IP>:8080`으로 열면 마이크가 막히니 키오스크는 그 기기의 로컬 브라우저로 띄우세요.)
+
+주의: 프론트의 TTS 주소 자동탐색이 `<호스트>:8080`을 쓰므로 **포트는 8080으로 고정**합니다.
+`virtual-avatar/.env`의 `VITE_TTS_API_BASE`는 비워두고, `VITE_PI_API_BASE`만 외부 LLM 주소로 둡니다.
+
+라즈베리파이(ARM 리눅스) 셋업은 `PI-HANDOFF.md` 참고.
 
 ## 자주 헷갈리는 부분
 
@@ -136,7 +171,7 @@ tts-server/venv/bin/python tts-server/macos-tts-server.py \
   --backend melo \
   --voice-convert "voice/스파이패밀리 아냐 목소리 대사 모음.mp3" \
   --port 8080 \
-  --serve-dir .
+  --serve-dir virtual-avatar/dist
 ```
 
 macOS 기본 `say` 백엔드로 확인만 빠르게 하려면:
@@ -147,6 +182,6 @@ macOS 기본 `say` 백엔드로 확인만 빠르게 하려면:
 
 ## 참고
 
-- 단일 HTML 버전: `chat-ui.html`
-- TTS 서버에 `--serve-dir .`를 쓰면 `http://localhost:8080/chat-ui.html`도 열 수 있습니다.
+- TTS 서버에 `--serve-dir virtual-avatar/dist`를 주면 `http://localhost:8080/`에서 UI를 함께 서빙합니다(통합 실행).
+- 레거시 단일 HTML 버전 `chat-ui.html`도 있지만 현재 프론트는 `virtual-avatar/`입니다.
 - 프론트 스트리밍/TTS 큐 설명은 `virtual-avatar/README.md`에 있습니다.
