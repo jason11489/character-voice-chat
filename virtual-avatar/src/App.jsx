@@ -112,8 +112,10 @@ function buildScenarioContext(scenario) {
   return {
     scene: scenario.sceneTitle,
     now: formatClock(new Date()),
-    data: scenario.data,
-    devices: scenario.devices,
+    state: scenario.data
+      .filter((d) => d.used)
+      .map((d) => `${d.label}: ${d.value}`),
+    devices: scenario.devices.map((d) => `${d.name}(${d.state})`),
   };
 }
 
