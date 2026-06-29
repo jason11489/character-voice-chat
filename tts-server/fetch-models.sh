@@ -52,6 +52,17 @@ for repo in ("myshell-ai/MeloTTS-Korean", "kykim/bert-kor-base"):
     print("  downloading", repo)
     snapshot_download(repo)
 PYEOF
+
+# 4) STT(faster-whisper small) + OpenVoice 워터마크(wavmark) 모델 prefetch
+#    둘 다 서버 기동 시 HF 에서 받으려다 오프라인이면 실패하므로 여기서 미리 받는다.
+echo "[get] faster-whisper(small) + wavmark prefetch..."
+"$PY" - <<'PYEOF'
+from huggingface_hub import snapshot_download
+snapshot_download("Systran/faster-whisper-small")   # STT (--stt-model 기본값 small)
+import wavmark                                        # OpenVoice convert() 워터마크 모델
+wavmark.load_model()
+print("  wavmark ok")
+PYEOF
 echo "[ok] HF 모델 캐시 준비됨"
 
 echo
