@@ -7,11 +7,13 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 // HTTPS 페이지는 http 백엔드를 직접 fetch 할 수 없어(mixed content) 두 백엔드를 모두 프록시한다:
 //   /v1, /reset            → 라즈베리파이 LLM (VITE_PI_API_BASE)
 //   /health /voices /tts /stt → 맥 TTS/STT 서버 (VITE_TTS_API_BASE, 기본 localhost:8080)
+//   /led                   → 라즈베리파이 LED 제어 서버 (VITE_PI_LED_BASE, 기본 10.56.131.21:5000)
 // 프론트는 HTTPS 일 때 same-origin 상대경로로 호출하므로 이 프록시를 그대로 탄다.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const llmTarget = env.VITE_PI_API_BASE || "http://localhost:8000";
   const ttsTarget = env.VITE_TTS_API_BASE || "http://localhost:8080";
+  const ledTarget = env.VITE_PI_LED_BASE || "http://10.56.131.21:5000";
   const proxy = Object.fromEntries(
     [
       ["/v1", llmTarget],
@@ -20,6 +22,7 @@ export default defineConfig(({ mode }) => {
       ["/voices", ttsTarget],
       ["/tts", ttsTarget],
       ["/stt", ttsTarget],
+      ["/led", ledTarget],
     ].map(([path, target]) => [path, { target, changeOrigin: true }]),
   );
 

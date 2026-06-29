@@ -506,6 +506,31 @@ export function getApiBase() {
   return getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
 }
 
+const DEVICE_TO_LED = {
+  "TV": "A",
+  "스피커": "B",
+  "조명": "C",
+  "로봇청소기": "D",
+  "공기청정기": "E",
+  "워시타워": "F",
+};
+
+export function sendDeviceCommands(devices) {
+  const commands = devices
+    .filter((d) => DEVICE_TO_LED[d.name])
+    .map((d) => ({ led: DEVICE_TO_LED[d.name], state: d.status === "active" ? "on" : "off" }));
+  if (!commands.length) return;
+  const url = isProxiedHttps()
+    ? "/led"
+    : `${getEnvBase("VITE_PI_LED_BASE", "http://10.56.131.21:5000")}/led`;
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ commands }),
+    signal: AbortSignal.timeout(2000),
+  }).catch(() => {});
+}
+
 export function getTtsApiBase() {
   if (isProxiedHttps()) return "";
   const fallback =

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
-import { askPiLLM, getApiBase, warmupLLM, resetLLMSession } from "./api/llmApi.js";
+import { askPiLLM, getApiBase, warmupLLM, resetLLMSession, sendDeviceCommands } from "./api/llmApi.js";
 import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import { transcribeAudio } from "./api/sttApi.js";
 import { connectAudioElement } from "./avatar/audioLipSync.js";
@@ -701,6 +701,7 @@ export default function App() {
         }
       );
       sentenceSplitter.flush();
+      sendDeviceCommands(apiResult?.homeSolution?.devices ?? []);
       const result = normalizeLLMResult(apiResult, scenario.assistant);
       const requestScenario = createRequestScenario(trimmed, result, scenario);
       setActiveDemo(requestScenario);
