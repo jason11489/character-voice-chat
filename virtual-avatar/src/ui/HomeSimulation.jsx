@@ -1,31 +1,52 @@
 import React, { useEffect, useState } from "react";
 import { demoEvents } from "../mock/demoEvents.js";
-import { HOME_SYNC_KEY, readSyncedDemoId, writeSyncedDemoId } from "../state/homeSync.js";
+import { HOME_SYNC_KEY, HOME_SYNC_SCENARIO_KEY, readSyncedDemoId, readSyncedScenario, writeSyncedDemoId } from "../state/homeSync.js";
 import IsometricHomeScene from "./IsometricHomeScene.jsx";
 
-function getInitialDemoId() {
+function getInitialScenario() {
   const defaultDemoId = "workout";
-  if (typeof window === "undefined") return defaultDemoId;
+  if (typeof window === "undefined") return demoEvents.find((demo) => demo.id === defaultDemoId) || demoEvents[0];
   const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode");
+  if (mode) return demoEvents.find((demo) => demo.id === mode) || demoEvents[0];
+  const customScenario = readSyncedScenario();
+  if (customScenario?.custom) return customScenario;
   const storedDemoId = readSyncedDemoId(defaultDemoId);
-  return params.get("mode") || (storedDemoId === "daily-chat" ? defaultDemoId : storedDemoId);
+  const demoId = storedDemoId === "daily-chat" ? defaultDemoId : storedDemoId;
+  return demoEvents.find((demo) => demo.id === demoId) || demoEvents[0];
+}
+
+function getDeviceStatusLabel(status) {
+  if (status === "active") return "실행";
+  if (status === "ready") return "준비";
+  return "대기";
 }
 
 export default function HomeSimulation() {
-  const [activeDemoId, setActiveDemoId] = useState(getInitialDemoId);
-  const activeDemo = demoEvents.find((demo) => demo.id === activeDemoId) || demoEvents[0];
+  const [activeDemo, setActiveDemo] = useState(getInitialScenario);
 
   const usedDataCount = activeDemo.data.filter((item) => item.used).length;
-  const activeDeviceCount = activeDemo.devices.filter((device) => device.status === "active").length;
+  const controlledDeviceCount = activeDemo.devices.filter((device) => device.status !== "idle").length;
 
   useEffect(() => {
     const handleStorage = (event) => {
+      if (event.key === HOME_SYNC_SCENARIO_KEY && event.newValue) {
+        const scenario = readSyncedScenario();
+        if (scenario?.custom) setActiveDemo(scenario);
+        return;
+      }
       if (event.key === HOME_SYNC_KEY && event.newValue) {
-        setActiveDemoId(event.newValue);
+        const scenario = readSyncedScenario();
+        if (scenario?.custom && scenario.id === event.newValue) setActiveDemo(scenario);
+        else setActiveDemo(demoEvents.find((demo) => demo.id === event.newValue) || demoEvents[0]);
       }
     };
     const handleLocalChange = (event) => {
-      if (event.detail) setActiveDemoId(event.detail);
+      if (event.detail?.scenario) {
+        setActiveDemo(event.detail.scenario);
+        return;
+      }
+      if (event.detail) setActiveDemo(demoEvents.find((demo) => demo.id === event.detail) || demoEvents[0]);
     };
 
     window.addEventListener("storage", handleStorage);
@@ -37,7 +58,7 @@ export default function HomeSimulation() {
   }, []);
 
   function selectDemo(demoId) {
-    setActiveDemoId(demoId);
+    setActiveDemo(demoEvents.find((demo) => demo.id === demoId) || demoEvents[0]);
     writeSyncedDemoId(demoId);
   }
 
@@ -55,8 +76,8 @@ export default function HomeSimulation() {
             <strong>{usedDataCount}/{activeDemo.data.length}</strong>
           </div>
           <div>
-            <span>실행</span>
-            <strong>{activeDeviceCount}</strong>
+            <span>제어</span>
+            <strong>{controlledDeviceCount}</strong>
           </div>
           <div>
             <span>현재</span>
@@ -66,9 +87,14 @@ export default function HomeSimulation() {
       </header>
 
       <section className="simulation-tabs" aria-label="시뮬레이션 시나리오">
+        {activeDemo.custom && (
+          <button className="simulation-tab is-active" type="button">
+            요청 기반
+          </button>
+        )}
         {demoEvents.map((demo) => (
           <button
-            className={demo.id === activeDemo.id ? "simulation-tab is-active" : "simulation-tab"}
+            className={!activeDemo.custom && demo.id === activeDemo.id ? "simulation-tab is-active" : "simulation-tab"}
             type="button"
             key={demo.id}
             onClick={() => selectDemo(demo.id)}
@@ -88,6 +114,14 @@ export default function HomeSimulation() {
             </div>
             <p>{activeDemo.devices.length}개 가전 지휘 중</p>
           </div>
+        </div>
+
+        <div className="simulation-solution-panel" aria-label="홈솔루션 결과">
+          <div className="simulation-solution-copy">
+            <span className="section-kicker">가전 작전 배치 · 실행 결과</span>
+            <strong>{activeDemo.solutionTitle}</strong>
+            <p>{activeDemo.solutionSummary}</p>
+          </div>
           <div className="simulation-device-strip">
             {activeDemo.devices.map((device) => (
               <div className={`simulation-device-pill is-${device.status}`} key={device.name}>
@@ -96,43 +130,11 @@ export default function HomeSimulation() {
                   <strong>{device.name}</strong>
                   <small>{device.state}</small>
                 </div>
+                <em>{getDeviceStatusLabel(device.status)}</em>
               </div>
             ))}
           </div>
         </div>
-
-        <aside className="simulation-side">
-          <div className="simulation-card">
-            <span className="section-kicker">상황 판단</span>
-            <h2>{activeDemo.sceneTitle}</h2>
-            <div className="sim-timeline">
-              {activeDemo.timeline.map((event) => (
-                <div className={event.current ? "sim-timeline-item is-current" : "sim-timeline-item"} key={`${event.time}-${event.title}`}>
-                  <span />
-                  <div>
-                    <strong>{event.time} · {event.title}</strong>
-                    <small>{event.meta}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="simulation-card">
-            <span className="section-kicker">사용된 데이터</span>
-            <div className="sim-data-list">
-              {activeDemo.data.map((item) => (
-                <div className={item.used ? "sim-data-item is-used" : "sim-data-item"} key={item.id}>
-                  <span className="sim-data-dot" />
-                  <div>
-                    <strong>{item.label}</strong>
-                    <small>{item.used ? item.value : "미사용"}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </section>
     </main>
   );

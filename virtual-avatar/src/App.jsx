@@ -5,7 +5,7 @@ import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./
 import { transcribeAudio } from "./api/sttApi.js";
 import { connectAudioElement } from "./avatar/audioLipSync.js";
 import { demoEvents } from "./mock/demoEvents.js";
-import { writeSyncedDemoId } from "./state/homeSync.js";
+import { writeSyncedDemoId, writeSyncedScenario } from "./state/homeSync.js";
 
 const avatarModels = [
   {
@@ -122,6 +122,86 @@ function normalizeLLMResult(result, fallback) {
     text: result?.text || fallback.text,
     emotion: result?.emotion || fallback.emotion || "thinking",
     action: result?.action || fallback.action || "thinking",
+    homeSolution: result?.homeSolution || null,
+  };
+}
+
+const requestDeviceRules = [
+  { keywords: ["조용", "시끄", "회의", "발표", "집중", "소음"], device: { name: "로봇청소기", state: "예약 일시정지", status: "active" } },
+  { keywords: ["조용", "회의", "발표", "집중", "밝"], device: { name: "조명", state: "전면 밝기 72%", status: "active" } },
+  { keywords: ["더워", "덥", "운동", "샤워", "바람", "시원"], device: { name: "선풍기", state: "약풍 예약", status: "ready" } },
+  { keywords: ["습", "꿉꿉", "비", "회식", "냄새"], device: { name: "공기청정기", state: "쾌적 모드", status: "active" } },
+  { keywords: ["습", "꿉꿉", "비", "빨래"], device: { name: "제습기", state: "습도 50% 목표", status: "active" } },
+  { keywords: ["옷", "정장", "냄새", "회식", "스타일러"], device: { name: "스타일러", state: "의류 케어 준비", status: "ready" } },
+  { keywords: ["빨래", "세탁", "건조"], device: { name: "워시타워", state: "세탁 건조 예약", status: "ready" } },
+  { keywords: ["운동", "쉐이크", "단백질", "레시피", "냉장고"], device: { name: "냉장고 화면", state: "추천 레시피 표시", status: "active" } },
+  { keywords: ["물", "냉수", "정수"], device: { name: "정수기", state: "냉수 준비", status: "ready" } },
+  { keywords: ["밥", "요리", "저녁", "인덕션"], device: { name: "인덕션", state: "조리 대기", status: "ready" } },
+  { keywords: ["설거지", "그릇", "식기"], device: { name: "식기세척기", state: "세척 예약", status: "ready" } },
+  { keywords: ["드라마", "영상", "티비", "tv", "스트레칭"], device: { name: "TV", state: "콘텐츠 준비", status: "ready" } },
+  { keywords: ["음악", "노래", "플레이리스트", "스피커"], device: { name: "스피커", state: "플레이리스트 준비", status: "ready" } },
+];
+
+function uniqueDevices(devices) {
+  const seen = new Set();
+  return devices.filter((device) => {
+    if (!device?.name || seen.has(device.name)) return false;
+    seen.add(device.name);
+    return true;
+  });
+}
+
+function buildFallbackDevices(userText) {
+  const lower = userText.toLowerCase();
+  const matched = requestDeviceRules
+    .filter((rule) => rule.keywords.some((keyword) => lower.includes(keyword.toLowerCase())))
+    .map((rule) => rule.device);
+
+  if (matched.length > 0) return uniqueDevices(matched).slice(0, 6);
+
+  return [
+    { name: "조명", state: "편안한 밝기", status: "ready" },
+    { name: "공기청정기", state: "자동 운전", status: "ready" },
+  ];
+}
+
+function createRequestScenario(userText, result, baseScenario) {
+  const solutionDevices = Array.isArray(result?.homeSolution?.devices)
+    ? result.homeSolution.devices
+    : [];
+  const devices = uniqueDevices(solutionDevices.length ? solutionDevices : buildFallbackDevices(userText)).slice(0, 6);
+  const now = formatClock(new Date());
+  const title = result?.homeSolution?.title || "요청 기반 홈솔루션";
+  const summary = result?.homeSolution?.summary || "말씀하신 요청에 맞춰 필요한 가전을 배치했습니다.";
+
+  return {
+    ...baseScenario,
+    id: `custom-${Date.now()}`,
+    label: "요청 기반",
+    userText,
+    sceneTitle: "사용자 요청 · 실시간 홈솔루션",
+    now,
+    timeline: [
+      { time: "현재", title: "요청 접수", meta: userText.slice(0, 18), current: true },
+      { time: "판단", title: "가전 배치", meta: `${devices.length}개 기기 제어` },
+      { time: "다음", title: "시뮬레이션", meta: "결과 화면 반영" },
+    ],
+    data: [
+      { id: "conversation", label: "대화 내용", value: userText.slice(0, 24), used: true },
+      { id: "location", label: "사용자 위치", value: "집", used: true },
+      { id: "purchase", label: "구매 정보", value: "이번 판단에는 미사용", used: false },
+      { id: "viewing", label: "시청 기록", value: "요청에 따라 확인", used: devices.some((device) => device.name === "TV") },
+      { id: "weather", label: "날씨·환경", value: "실내 상태 기반", used: devices.some((device) => ["공기청정기", "제습기", "선풍기", "조명"].includes(device.name)) },
+    ],
+    solutionTitle: title,
+    solutionSummary: summary,
+    devices,
+    assistant: {
+      text: result?.text || baseScenario.assistant.text,
+      emotion: result?.emotion || baseScenario.assistant.emotion,
+      action: result?.action || baseScenario.assistant.action,
+    },
+    custom: true,
   };
 }
 
@@ -260,8 +340,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    writeSyncedDemoId(activeDemo.id);
-  }, [activeDemo.id]);
+    if (activeDemo.custom) writeSyncedScenario(activeDemo);
+    else writeSyncedDemoId(activeDemo.id);
+  }, [activeDemo]);
 
   useEffect(() => {
     const id = setInterval(() => setClock(formatClock(new Date())), 1000);
@@ -619,6 +700,8 @@ export default function App() {
       );
       sentenceSplitter.flush();
       const result = normalizeLLMResult(apiResult, scenario.assistant);
+      const requestScenario = createRequestScenario(trimmed, result, scenario);
+      setActiveDemo(requestScenario);
       setEmotion(result.emotion);
       setAction(result.action);
       if (!queuedSentence) {
@@ -629,7 +712,9 @@ export default function App() {
       console.info("LLM API unavailable. Falling back to demo scenario.", error);
       setErrorText(`LLM API fallback: ${error.message}`);
       if (!streamedText) {
-        speak(scenario.assistant);
+        const fallbackScenario = createRequestScenario(trimmed, scenario.assistant, scenario);
+        setActiveDemo(fallbackScenario);
+        speak(fallbackScenario.assistant);
       }
     } finally {
       setLoading(false);
@@ -917,29 +1002,6 @@ export default function App() {
           </div>
         </div>
 
-        <div className="section-block solution-section">
-          <div className="solution-header">
-            <div className="solution-check" aria-hidden="true">✓</div>
-            <div>
-              <span className="section-kicker">가전 작전 배치 · 실행 결과</span>
-              <div className="section-title">{activeDemo.solutionTitle}</div>
-              <p>{activeDemo.solutionSummary}</p>
-            </div>
-          </div>
-          <div className="solution-grid">
-            {activeDemo.devices.map((device) => (
-              <div className={`solution-item is-${device.status}`} key={device.name}>
-                <div>
-                  <span>{device.name}</span>
-                  <strong>{device.state}</strong>
-                </div>
-                <span className="solution-status">
-                  {device.status === "active" ? "실행" : device.status === "ready" ? "준비" : "대기"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section className="avatar-stage" aria-label="3D 홈솔루션비서">

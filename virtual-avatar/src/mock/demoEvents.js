@@ -52,8 +52,10 @@ export const demoEvents = [
     devices: [
       { name: "스타일러", state: "의류 케어 준비", status: "ready" },
       { name: "공기청정기", state: "제습 모드 실행", status: "active" },
+      { name: "제습기", state: "습도 50% 목표", status: "active" },
       { name: "TV", state: "드라마 이어보기", status: "ready" },
       { name: "스피커", state: "귀가 플레이리스트", status: "ready" },
+      { name: "워시타워", state: "세탁 예약 대기", status: "ready" },
     ],
     assistant: {
       text: "왔어? 비싼 옷 입고 갔더라. 스타일러 코스 골라놨어. 걸기만 해. 어제 보던 드라마도 이어서 틀어줄까?",
@@ -86,6 +88,8 @@ export const demoEvents = [
       { name: "선풍기", state: "샤워 후 약풍 예약", status: "ready" },
       { name: "TV", state: "스트레칭 영상", status: "ready" },
       { name: "스피커", state: "회복 플레이리스트", status: "ready" },
+      { name: "정수기", state: "냉수 준비", status: "ready" },
+      { name: "인덕션", state: "저녁 조리 대기", status: "ready" },
     ],
     assistant: {
       text: "오 오늘은 진짜 운동했네? 등 하는 날이었지. 샤워하고 나와. 그동안 선풍기 켜두고 단백질 쉐이크 레시피도 띄워둘게.",
@@ -118,6 +122,8 @@ export const demoEvents = [
       { name: "공기청정기", state: "저소음 모드", status: "active" },
       { name: "조명", state: "전면 밝기 72%", status: "active" },
       { name: "TV", state: "자동 실행 차단", status: "active" },
+      { name: "식기세척기", state: "알림음 끄기", status: "ready" },
+      { name: "정수기", state: "음성 안내 끄기", status: "ready" },
     ],
     assistant: {
       text: "발표 8분 전이네. 로봇청소기는 멈추고 공기청정기는 저소음으로 낮출게. 조명은 얼굴이 잘 보이게 유지해둘게.",

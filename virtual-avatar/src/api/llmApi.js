@@ -15,6 +15,13 @@ idle, nod, shake_head, wave, explain, thinking, celebrate
   "text": "사용자에게 말할 짧은 한국어 문장",
   "emotion": "위 enum 중 하나",
   "action": "위 enum 중 하나",
+  "homeSolution": {
+    "title": "홈솔루션 제목",
+    "summary": "가전 제어 결과 한 문장",
+    "devices": [
+      { "name": "아래 허용 가전명 중 하나", "state": "짧은 상태", "status": "active 또는 ready 또는 idle" }
+    ]
+  },
   "cards": [
     {
       "title": "카드 제목",
@@ -22,6 +29,9 @@ idle, nod, shake_head, wave, explain, thinking, celebrate
     }
   ]
 }
+
+허용 가전명:
+TV, 스피커, 조명, 로봇청소기, 공기청정기, 제습기, 선풍기, 냉장고 화면, 스타일러, 워시타워, 정수기, 인덕션, 식기세척기
 
 말투(중요):
 - 격식 있는 존댓말 "~합니다/~습니다/~하시죠". 자신감 넘치는 임원·보스 화법.
@@ -33,12 +43,14 @@ idle, nod, shake_head, wave, explain, thinking, celebrate
 규칙:
 - text는 1~3문장으로 짧게. text에는 번호·리스트 나열 금지.
 - 위험하거나 불확실한 자동 제어는 바로 실행하지 말고 확인을 요청.
+- 사용자의 요청에 맞는 가전 제어 결과가 있으면 homeSolution을 채워라. 실행한 것은 active, 곧 실행하거나 준비된 것은 ready, 하지 않는 것은 idle이다.
+- homeSolution.devices는 1~6개만 넣어라. 관련 가전이 없으면 devices는 빈 배열로 둔다.
 - emotion과 action은 반드시 enum 중 하나.
 - JSON 외의 설명을 출력하지 마라.
 
 예시(말투 참고, 출력 형식은 동일):
-{"text": "오셨습니까. 보스. 거실 조명은 이미 켜뒀습니다. 에어컨은 곧 가동하겠습니다.", "emotion": "happy", "action": "wave", "cards": []}
-{"text": "실내가 다소 덥습니다. 보스 26도로 맞춰뒀으니, 불편하시면 말씀만 주십시오.", "emotion": "thinking", "action": "explain", "cards": []}
+{"text": "오셨습니까. 보스. 거실 조명은 이미 켜뒀습니다. 에어컨은 곧 가동하겠습니다.", "emotion": "happy", "action": "wave", "homeSolution": {"title": "귀가 맞춤 루틴", "summary": "조명과 공기를 먼저 정리했습니다.", "devices": [{"name": "조명", "state": "거실 밝기 72%", "status": "active"}, {"name": "공기청정기", "state": "쾌적 모드", "status": "ready"}]}, "cards": []}
+{"text": "실내가 다소 덥습니다. 보스 26도로 맞춰뒀으니, 불편하시면 말씀만 주십시오.", "emotion": "thinking", "action": "explain", "homeSolution": {"title": "실내 쾌적 모드", "summary": "온도와 공기 흐름을 맞췄습니다.", "devices": [{"name": "선풍기", "state": "약풍 예약", "status": "ready"}, {"name": "공기청정기", "state": "자동 운전", "status": "active"}]}, "cards": []}
 `.trim();
 
 const ALLOWED_EMOTIONS = new Set([
@@ -58,10 +70,26 @@ const ALLOWED_ACTIONS = new Set([
   "thinking",
   "celebrate",
 ]);
+const ALLOWED_DEVICE_NAMES = new Set([
+  "TV",
+  "스피커",
+  "조명",
+  "로봇청소기",
+  "공기청정기",
+  "제습기",
+  "선풍기",
+  "냉장고 화면",
+  "스타일러",
+  "워시타워",
+  "정수기",
+  "인덕션",
+  "식기세척기",
+]);
+const ALLOWED_DEVICE_STATUSES = new Set(["active", "ready", "idle"]);
 
 const MAX_SEQ_LEN = Number(import.meta.env.VITE_LLM_MAX_SEQ_LEN) || 4096;
 const RESET_RATIO = 0.85;
-const RESPONSE_TOKEN_BUDGET = 256;
+const RESPONSE_TOKEN_BUDGET = 420;
 const WARMUP_USER = "안녕";
 
 function estimateTokens(text) {
@@ -208,11 +236,29 @@ function sanitizeResponse(data) {
     : "thinking";
   const action = ALLOWED_ACTIONS.has(data?.action) ? data.action : "thinking";
   const cards = Array.isArray(data?.cards) ? data.cards : [];
+  const rawDevices = Array.isArray(data?.homeSolution?.devices)
+    ? data.homeSolution.devices
+    : [];
+  const devices = rawDevices.slice(0, 6).flatMap((device) => {
+    const name = String(device?.name || "").trim();
+    if (!ALLOWED_DEVICE_NAMES.has(name)) return [];
+    const status = ALLOWED_DEVICE_STATUSES.has(device?.status) ? device.status : "ready";
+    return [{
+      name,
+      state: String(device?.state || "준비").slice(0, 36),
+      status,
+    }];
+  });
 
   return {
     text: String(data?.text || "좋아요. 확인해볼게요.").slice(0, 240),
     emotion,
     action,
+    homeSolution: {
+      title: String(data?.homeSolution?.title || "").slice(0, 34),
+      summary: String(data?.homeSolution?.summary || "").slice(0, 80),
+      devices,
+    },
     cards: cards.slice(0, 4).flatMap((card) => {
       if (!card || typeof card !== "object") return [];
       const items = Array.isArray(card.items) ? card.items : [card.items];

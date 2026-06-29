@@ -291,6 +291,9 @@ function addRoomModel(scene, scenario) {
   const wood = createMaterial(0xc79b62, { roughness: 0.64 });
   const woodDark = createMaterial(0xa8763f);
   const rug = createMaterial(0xcfc4b5);
+  const kitchenZone = createMaterial(0xe8eee8);
+  const laundryZone = createMaterial(0xd9e4ea);
+  const entryZone = createMaterial(0xd7ccb8);
   const white = createMaterial(0xfffdf7);
   const black = createMaterial(0x151515, { roughness: 0.36, metalness: 0.06 });
   const gold = createMaterial(0xb88a3b, { metalness: 0.18 });
@@ -307,6 +310,11 @@ function addRoomModel(scene, scenario) {
   const fridgeOn = isDeviceOn("냉장고 화면");
   const speakerStatus = statusOf("스피커");
   const speakerOn = isDeviceOn("스피커");
+  const dehumidifierOn = isDeviceOn("제습기");
+  const waterPurifierOn = isDeviceOn("정수기");
+  const inductionOn = isDeviceOn("인덕션");
+  const dishwasherOn = isDeviceOn("식기세척기");
+  const washerTowerOn = isDeviceOn("워시타워");
   const fridgeScreen = fridgeOn
     ? makeRecipeDisplayMaterial(getStatusColor(statusOf("냉장고 화면")))
     : createMaterial(0x8fb6d9, { emissive: 0x8fb6d9, emissiveIntensity: 0.15 });
@@ -331,9 +339,14 @@ function addRoomModel(scene, scenario) {
     });
   }
 
+  addBox(root, { size: [1.7, 0.025, 1.1], position: [-1.55, 0.025, 0.1], material: kitchenZone, castShadow: false });
+  addBox(root, { size: [1.25, 0.025, 1.55], position: [-2.45, 0.026, 1.45], material: laundryZone, castShadow: false });
+  addBox(root, { size: [1.15, 0.025, 0.76], position: [1.85, 0.027, 1.18], material: entryZone, castShadow: false });
+  addBox(root, { size: [0.035, 0.08, 1.25], position: [-0.68, 0.075, 0.05], material: createMaterial(0xf7faf5), castShadow: false });
+  addBox(root, { size: [1.16, 0.08, 0.035], position: [-2.46, 0.075, 0.68], material: createMaterial(0xf7faf5), castShadow: false });
+
   addBox(root, { size: [6.2, 2.65, 0.16], position: [0, 1.26, -2.38], material: wall });
   addBox(root, { size: [0.16, 2.65, 4.6], position: [-3.18, 1.26, 0], material: brick });
-  addBox(root, { size: [0.16, 1.45, 1.65], position: [3.18, 0.72, -0.72], material: wall });
   addBox(root, { size: [4.2, 0.08, 0.18], position: [-0.8, 2.64, -2.38], material: wall });
 
   addWindow(root, -1.75, 1.38, -2.48, "x");
@@ -346,6 +359,17 @@ function addRoomModel(scene, scenario) {
   addCylinder(root, { radiusTop: 0.32, radiusBottom: 0.32, height: 0.08, position: [0.98, 0.48, 0.5], material: white });
   addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.5, position: [0.98, 0.25, 0.5], material: gold });
   addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.06, position: [0.98, 0.03, 0.5], material: gold });
+
+  addBox(root, { size: [1.38, 0.52, 0.48], position: [-1.66, 0.26, 0.12], material: white });
+  addBox(root, { size: [0.62, 0.06, 0.34], position: [-1.98, 0.55, 0.12], material: createMaterial(0x151515, { roughness: 0.32 }) });
+  if (inductionOn) {
+    addStatusLight(root, { position: [-1.98, 0.6, 0.12], color: getStatusColor(statusOf("인덕션")), active: true, size: [0.22, 0.018, 0.12] });
+  }
+  addBox(root, { size: [0.46, 0.36, 0.08], position: [-1.35, 0.28, 0.39], material: createMaterial(0xe6edf0) });
+  addStatusLight(root, { position: [-1.35, 0.44, 0.44], color: getStatusColor(statusOf("식기세척기")), active: dishwasherOn, size: [0.16, 0.025, 0.02] });
+  addBox(root, { size: [0.22, 0.62, 0.22], position: [-1.1, 0.33, -0.18], material: createMaterial(0xf4f7f5) });
+  addCylinder(root, { radiusTop: 0.07, radiusBottom: 0.08, height: 0.12, position: [-1.1, 0.7, -0.18], material: silver });
+  addStatusLight(root, { position: [-1.1, 0.55, -0.06], color: getStatusColor(statusOf("정수기")), active: waterPurifierOn, size: [0.09, 0.025, 0.02] });
 
   addBox(root, { size: [1.78, 0.08, 0.38], position: [0, 0.34, -1.96], material: white });
   addBox(root, { size: [1.42, 0.94, 0.08], position: [0, 1.32, -2.28], rotation: [0, 0, 0], material: tvScreen });
@@ -378,30 +402,58 @@ function addRoomModel(scene, scenario) {
       scale: 0.86,
     });
   }
+  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.05, position: [1.36, 0.06, 0.92], material: silver, segments: 32 });
+  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.66, position: [1.36, 0.39, 0.92], material: silver, segments: 24 });
+  addCylinder(root, {
+    radiusTop: 0.26,
+    radiusBottom: 0.26,
+    height: 0.08,
+    position: [1.36, 0.78, 0.92],
+    rotation: [Math.PI / 2, 0, 0],
+    material: createMaterial(acOn ? 0xdaf6ff : 0xe8edf0, {
+      transparent: true,
+      opacity: 0.72,
+      emissive: acOn ? 0x8bdcff : 0x000000,
+      emissiveIntensity: acOn ? 0.24 : 0,
+    }),
+    segments: 36,
+  });
+  for (let blade = 0; blade < 3; blade += 1) {
+    const fanBlade = addBox(root, {
+      size: [0.09, 0.018, 0.36],
+      position: [1.36, 0.78, 0.92],
+      rotation: [0, (blade * Math.PI * 2) / 3, 0.35],
+      material: createMaterial(acOn ? 0x9ed8ff : 0xc5d0d8, { transparent: true, opacity: 0.64 }),
+      castShadow: false,
+    });
+    fanBlade.scale.z = acOn ? 1.08 : 0.9;
+  }
 
   addPlant(root, -0.68, -1.65, 0.72);
   addPlant(root, 2.18, -1.18, 0.86);
-  addPlant(root, -0.58, 1.86, 0.68);
+  addPlant(root, -0.92, 2.1, 0.48);
 
-  addBox(root, { size: [0.84, 1.5, 0.44], position: [-2.7, 0.75, 1.74], material: createMaterial(0xf3f5f8) });
-  addBox(root, {
-    size: [0.5, 1.24, 0.05],
-    position: [-2.7, 0.79, 1.98],
-    material: createMaterial(stylerOn ? 0xdaf6ff : 0xa8bfd1, {
-      transparent: true,
-      opacity: stylerOn ? 0.72 : 0.48,
-      emissive: stylerOn ? 0x8bdcff : 0x000000,
-      emissiveIntensity: stylerOn ? 0.45 : 0,
-    }),
-  });
-  if (stylerOn) addStatusLight(root, { position: [-2.7, 1.28, 2], color: getStatusColor(statusOf("스타일러")), active: statusOf("스타일러") === "active", size: [0.13, 0.035, 0.02] });
+  addBox(root, { size: [0.88, 1.62, 0.44], position: [-2.15, 0.81, 1.29], material: createMaterial(0x1f2328, { roughness: 0.36 }) });
+  addBox(root, { size: [0.62, 1.5, 0.05], position: [-2.06, 0.86, 1.54], material: createMaterial(0xe9e1d3, { roughness: 0.42 }) });
+  addBox(root, { size: [0.14, 1.5, 0.055], position: [-2.47, 0.86, 1.55], material: createMaterial(0x15191f, { roughness: 0.32 }) });
+  addBox(root, { size: [0.74, 0.035, 0.08], position: [-2.13, 1.63, 1.56], material: createMaterial(0x111318), castShadow: false });
+  addBox(root, { size: [0.78, 0.06, 0.14], position: [-2.13, 0.03, 1.5], material: createMaterial(0x111318) });
+  addCylinder(root, { radiusTop: 0.03, radiusBottom: 0.03, height: 0.008, position: [-2.49, 1.45, 1.58], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xf7faf5), segments: 20 });
+  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 1.02, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
+  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 0.94, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
+  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 0.86, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
+  if (stylerOn) addStatusLight(root, { position: [-2.49, 0.76, 1.59], color: getStatusColor(statusOf("스타일러")), active: statusOf("스타일러") === "active", size: [0.07, 0.02, 0.01] });
   if (stylerOn) {
     addSignal(root, {
-      position: [-2.7, 2.18, 1.78],
+      position: [-2.15, 2.18, 1.33],
       color: getStatusColor(statusOf("스타일러")),
       scale: 0.92,
     });
   }
+  addBox(root, { size: [0.58, 1.18, 0.36], position: [-2.05, 0.59, 1.82], material: createMaterial(0xf1f5f8) });
+  addCylinder(root, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [-2.05, 0.93, 2.01], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
+  addCylinder(root, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [-2.05, 0.35, 2.01], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
+  addStatusLight(root, { position: [-1.78, 1.1, 2.02], color: getStatusColor(statusOf("워시타워")), active: washerTowerOn, size: [0.09, 0.025, 0.02] });
   addBox(root, { size: [0.52, 1.68, 0.5], position: [-2.38, 0.84, -1.48], material: createMaterial(0xe5e7eb) });
   addBox(root, { size: [0.52, 1.68, 0.5], position: [-1.84, 0.84, -1.48], material: createMaterial(0xf0f3f6) });
   addBox(root, { size: [0.03, 1.62, 0.52], position: [-2.11, 0.84, -1.48], material: createMaterial(0xc6d0d8), castShadow: false });
@@ -432,17 +484,56 @@ function addRoomModel(scene, scenario) {
     segments: 36,
   });
   addStatusLight(root, { position: [1.34, 0.86, -1.77], color: getStatusColor(airStatus), active: airOn, size: [0.13, 0.04, 0.02] });
+  addCylinder(root, {
+    radiusTop: 0.17,
+    radiusBottom: 0.2,
+    height: 0.62,
+    position: [1.76, 0.31, -1.94],
+    material: createMaterial(0xe9eef1),
+    segments: 36,
+  });
+  addStatusLight(root, { position: [1.76, 0.63, -1.76], color: getStatusColor(statusOf("제습기")), active: dehumidifierOn, size: [0.1, 0.03, 0.02] });
 
+  addCylinder(root, {
+    radiusTop: 0.24,
+    radiusBottom: 0.32,
+    height: 0.58,
+    position: [2.28, 0.29, 0.46],
+    material: createMaterial(0xd9cdbb, { roughness: 0.88 }),
+    segments: 48,
+  });
+  addCylinder(root, {
+    radiusTop: 0.24,
+    radiusBottom: 0.2,
+    height: 0.12,
+    position: [2.28, 0.63, 0.46],
+    material: createMaterial(0xbab6ad, { roughness: 0.34, metalness: 0.12 }),
+    segments: 48,
+  });
   addBox(root, {
-    size: [0.28, 0.52, 0.28],
-    position: [2.28, 0.28, 0.46],
-    material: createMaterial(0x22272f, { roughness: 0.38 }),
+    size: [0.22, 0.3, 0.08],
+    position: [2.45, 0.75, 0.46],
+    rotation: [0, 0, -0.18],
+    material: createMaterial(0xd6d0c4),
+  });
+  addCylinder(root, {
+    radiusTop: 0.2,
+    radiusBottom: 0.12,
+    height: 0.12,
+    position: [2.28, 0.77, 0.46],
+    material: createMaterial(speakerOn ? 0xffe9a6 : 0xbeb8aa, {
+      transparent: true,
+      opacity: 0.86,
+      emissive: speakerOn ? 0xffd55e : 0x000000,
+      emissiveIntensity: speakerOn ? 0.55 : 0,
+    }),
+    segments: 4,
   });
   addStatusLight(root, {
-    position: [2.28, 0.58, 0.46],
+    position: [2.28, 0.52, 0.76],
     color: getStatusColor(speakerStatus),
     active: speakerOn,
-    size: [0.11, 0.03, 0.11],
+    size: [0.11, 0.03, 0.02],
   });
   if (speakerOn) {
     addSignal(root, {
@@ -461,18 +552,44 @@ function addRoomModel(scene, scenario) {
   }
 
   const robotOn = isDeviceOn("로봇청소기");
-  addCylinder(root, { radiusTop: 0.17, radiusBottom: 0.17, height: 0.18, position: [-0.82, 0.09, 1.52], material: black, segments: 40 });
-  if (robotOn) addStatusLight(root, { position: [-0.82, 0.2, 1.52], color: getStatusColor(statusOf("로봇청소기")), active: true, size: [0.08, 0.02, 0.04] });
+  addCylinder(root, { radiusTop: 0.34, radiusBottom: 0.34, height: 0.16, position: [0.34, 0.08, 1.58], material: createMaterial(0x20242a, { roughness: 0.32 }), segments: 56 });
+  addCylinder(root, { radiusTop: 0.13, radiusBottom: 0.13, height: 0.03, position: [0.34, 0.18, 1.58], material: createMaterial(0x0f172a), segments: 40 });
+  addBox(root, { size: [0.24, 0.035, 0.025], position: [0.34, 0.19, 1.24], material: createMaterial(robotOn ? 0xff7557 : 0x9aa6b2, { emissive: robotOn ? 0xff7557 : 0x000000, emissiveIntensity: robotOn ? 0.7 : 0 }), castShadow: false });
+  if (robotOn) {
+    addCylinder(root, {
+      radiusTop: 0.46,
+      radiusBottom: 0.46,
+      height: 0.012,
+      position: [0.34, 0.032, 1.58],
+      material: createMaterial(0x78e6b0, { transparent: true, opacity: 0.26, emissive: 0x16a36d, emissiveIntensity: 0.28 }),
+      segments: 56,
+    });
+    addStatusLight(root, { position: [0.34, 0.21, 1.58], color: getStatusColor(statusOf("로봇청소기")), active: true, size: [0.14, 0.025, 0.07] });
+  }
 
   const lightOn = isDeviceOn("조명");
+  addCylinder(root, {
+    radiusTop: 0.24,
+    radiusBottom: 0.12,
+    height: 0.2,
+    position: [-0.2, 2.36, -1.55],
+    material: createMaterial(lightOn ? 0xfff1aa : 0xf1ead6, { emissive: lightOn ? 0xffd55e : 0x000000, emissiveIntensity: lightOn ? 0.55 : 0 }),
+    segments: 32,
+  });
   if (lightOn) {
-    addCylinder(root, {
-      radiusTop: 0.28,
-      radiusBottom: 0.08,
-      height: 0.3,
-      position: [-0.2, 2.34, -1.55],
-      material: createMaterial(0xfff1aa, { emissive: 0xffd55e, emissiveIntensity: 0.9 }),
-      segments: 32,
+    addBox(root, {
+      size: [2.25, 0.02, 1.1],
+      position: [-0.18, 0.035, -1.25],
+      material: createMaterial(0xffedaa, { transparent: true, opacity: 0.34, emissive: 0xffd55e, emissiveIntensity: 0.36 }),
+      castShadow: false,
+      receiveShadow: false,
+    });
+    addBox(root, {
+      size: [1.72, 0.72, 0.018],
+      position: [-0.2, 1.42, -2.28],
+      material: createMaterial(0xffedaa, { transparent: true, opacity: 0.26, emissive: 0xffd55e, emissiveIntensity: 0.28 }),
+      castShadow: false,
+      receiveShadow: false,
     });
     const lamp = new THREE.PointLight(0xffd55e, 2.8, 3.4);
     lamp.position.set(-0.2, 2.1, -1.2);

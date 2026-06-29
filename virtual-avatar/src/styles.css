@@ -1369,8 +1369,8 @@ body,
   display: grid;
   height: calc(100vh - 176px);
   min-height: 560px;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
 }
 
 .simulation-scene-wrap {
@@ -1456,21 +1456,52 @@ body,
   font-weight: 850;
 }
 
+.simulation-solution-panel {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 12px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid rgba(35, 87, 67, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 254, 248, 0.88);
+  box-shadow: 0 18px 42px rgba(35, 87, 67, 0.1);
+}
+
+.simulation-solution-copy {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.simulation-solution-copy strong {
+  color: #17352d;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.simulation-solution-copy p {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
 .simulation-device-strip {
-  position: absolute;
-  left: 22px;
-  right: 22px;
-  bottom: 20px;
-  z-index: 2;
-  display: none;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .simulation-device-pill {
   display: flex;
   min-width: 0;
-  min-height: 54px;
+  min-height: 58px;
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
@@ -1505,7 +1536,19 @@ body,
 }
 
 .simulation-device-pill div {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.simulation-device-pill em {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(23, 53, 45, 0.08);
+  color: #235743;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
 }
 
 .simulation-device-pill strong,
@@ -1837,7 +1880,17 @@ body,
   }
 
   .simulation-stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 680px) auto;
     height: auto;
+  }
+
+  .simulation-solution-panel {
+    max-height: none;
+  }
+
+  .simulation-device-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .simulation-topbar {
