@@ -85,10 +85,11 @@ verify: `python3.11 --version` → 3.11.x
 cd ~/character-voice-chat
 python3.11 -m venv tts-server/venv
 tts-server/venv/bin/pip install --upgrade pip
-# torch CPU (aarch64 휠). 버전은 pip 가 자동 선택. 실패 시 PyTorch 공식 ARM 안내 참고.
-tts-server/venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+# ⚠️ PyPI 기본 aarch64 torch 휠은 이제 CUDA 빌드(libcudart.so.13)라 Pi(GPU 없음)에서 깨진다.
+#    torch + torchaudio 둘 다 cpu 인덱스를 "명시"해서 받아야 한다. (휠 없으면 ==2.2.2 로 고정)
+tts-server/venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch torchaudio
 ```
-verify: `tts-server/venv/bin/python -c "import torch; print(torch.__version__, torch.cuda.is_available())"` → 버전 출력, `False`
+verify: `tts-server/venv/bin/python -c "import torch, torchaudio; print(torch.__version__, 'cuda=', torch.version.cuda)"` → `cuda= None`
 
 ### 3. TTS/STT 파이썬 의존성
 
@@ -96,7 +97,10 @@ verify: `tts-server/venv/bin/python -c "import torch; print(torch.__version__, t
 tts-server/venv/bin/pip install -r tts-server/requirements-melo.txt
 tts-server/venv/bin/pip install -r tts-server/requirements-stt.txt
 ```
-verify: `tts-server/venv/bin/python -c "from melo.api import TTS; from faster_whisper import WhisperModel; print('ok')"`
+⚠️ MeloTTS 의존성이 torch/torchaudio 를 CUDA 빌드로 되돌릴 수 있다. 설치 후 **반드시 재확인**하고,
+CUDA로 바뀌었으면 2단계 명령으로 다시 깐다(`pip uninstall -y torch torchaudio` 후 cpu 인덱스 재설치).
+
+verify: `tts-server/venv/bin/python -c "import torch; print('cuda=', torch.version.cuda); from melo.api import TTS; from faster_whisper import WhisperModel; print('ok')"` → `cuda= None` + `ok`
 
 ### 3b. 모델/소스 받기
 

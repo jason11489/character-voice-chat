@@ -9,12 +9,17 @@
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"      # .../tts-server
-PY="$HERE/venv/bin/python"
 
-if [ ! -x "$PY" ]; then
-  echo "venv가 없습니다. 먼저 venv 생성 + requirements-melo.txt 설치하세요." >&2
+# 활성화된 venv(.venv 등)가 있으면 그걸, 없으면 tts-server/venv 를 쓴다.
+if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+  PY="$VIRTUAL_ENV/bin/python"
+elif [ -x "$HERE/venv/bin/python" ]; then
+  PY="$HERE/venv/bin/python"
+else
+  echo "venv를 못 찾음. venv 활성화(source .venv/bin/activate) 후 다시 실행하세요." >&2
   exit 1
 fi
+echo "[venv] $PY"
 
 # 1) OpenVoice 소스 (서버가 openvoice.api 를 import)
 if [ -f "$HERE/openvoice-src/openvoice/api.py" ]; then
