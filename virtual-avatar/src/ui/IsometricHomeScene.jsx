@@ -375,7 +375,7 @@ function addRoomModel(scene, scenario) {
   addBox(root, { size: [0.62, 0.06, 0.34], position: [-1.98, 0.55, 0.12], material: createMaterial(0x151515, { roughness: 0.32 }) });
   if (inductionOn) {
     addStatusLight(root, { position: [-1.98, 0.6, 0.12], color: getStatusColor(statusOf("인덕션")), active: true, size: [0.22, 0.018, 0.12] });
-    const inductionLight = new THREE.PointLight(0xff5522, 1.0, 1.6);
+    const inductionLight = new THREE.PointLight(0xfff0c8, 1.0, 1.6);
     inductionLight.position.set(-1.98, 0.75, 0.12);
     root.add(inductionLight);
   }
@@ -385,7 +385,7 @@ function addRoomModel(scene, scenario) {
   addCylinder(root, { radiusTop: 0.07, radiusBottom: 0.08, height: 0.12, position: [-1.1, 0.7, -0.18], material: silver });
   addStatusLight(root, { position: [-1.1, 0.55, -0.06], color: getStatusColor(statusOf("정수기")), active: waterPurifierOn, size: [0.09, 0.025, 0.02] });
   if (waterPurifierOn) {
-    const purifierLight = new THREE.PointLight(0x44aaff, 0.7, 1.4);
+    const purifierLight = new THREE.PointLight(0xfff0c8, 0.7, 1.4);
     purifierLight.position.set(-1.1, 0.8, -0.18);
     root.add(purifierLight);
   }
@@ -407,13 +407,13 @@ function addRoomModel(scene, scenario) {
     material: acScreen,
     castShadow: false,
   });
-  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.05, position: [1.36, 0.06, 0.92], material: silver, segments: 32 });
-  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.66, position: [1.36, 0.39, 0.92], material: silver, segments: 24 });
+  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.05, position: [1.82, 0.06, 0.58], material: silver, segments: 32 });
+  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.66, position: [1.82, 0.39, 0.58], material: silver, segments: 24 });
   addCylinder(root, {
     radiusTop: 0.26,
     radiusBottom: 0.26,
     height: 0.08,
-    position: [1.36, 0.78, 0.92],
+    position: [1.82, 0.78, 0.58],
     rotation: [Math.PI / 2, 0, 0],
     material: createMaterial(acOn ? 0xdaf6ff : 0xe8edf0, {
       transparent: true,
@@ -426,7 +426,7 @@ function addRoomModel(scene, scenario) {
   for (let blade = 0; blade < 3; blade += 1) {
     const fanBlade = addBox(root, {
       size: [0.09, 0.018, 0.36],
-      position: [1.36, 0.78, 0.92],
+      position: [1.82, 0.78, 0.58],
       rotation: [0, (blade * Math.PI * 2) / 3, 0.35],
       material: createMaterial(acOn ? 0x9ed8ff : 0xc5d0d8, { transparent: true, opacity: 0.64 }),
       castShadow: false,
@@ -434,8 +434,8 @@ function addRoomModel(scene, scenario) {
     fanBlade.scale.z = acOn ? 1.08 : 0.9;
   }
   if (acOn) {
-    const fanLight = new THREE.PointLight(0x88d8ff, 1.0, 2.2);
-    fanLight.position.set(1.36, 0.9, 0.92);
+    const fanLight = new THREE.PointLight(0xfff0c8, 1.0, 2.2);
+    fanLight.position.set(1.82, 0.9, 0.58);
     root.add(fanLight);
   }
 
@@ -445,13 +445,13 @@ function addRoomModel(scene, scenario) {
 
   addStyler(root, -2.88, 1.1, -Math.PI / 2, stylerOn, statusOf("스타일러"));
   if (stylerOn) {
-    const stylerLight = new THREE.PointLight(0x4488ff, 1.1, 2.4);
+    const stylerLight = new THREE.PointLight(0xfff0c8, 1.1, 2.4);
     stylerLight.position.set(-2.44, 0.9, 1.1);
     root.add(stylerLight);
   }
   addWashTower(root, -2.92, 1.82, -Math.PI / 2, washerTowerOn, statusOf("워시타워"));
   if (washerTowerOn) {
-    const washerLight = new THREE.PointLight(0x88bbff, 0.9, 2.0);
+    const washerLight = new THREE.PointLight(0xfff0c8, 0.9, 2.0);
     washerLight.position.set(-2.44, 0.5, 1.82);
     root.add(washerLight);
   }
@@ -468,7 +468,7 @@ function addRoomModel(scene, scenario) {
     castShadow: false,
   });
   if (fridgeOn) {
-    const fridgeLight = new THREE.PointLight(0x40d898, 0.9, 2.0);
+    const fridgeLight = new THREE.PointLight(0xfff0c8, 0.9, 2.0);
     fridgeLight.position.set(-1.82, 1.0, -0.95);
     root.add(fridgeLight);
   }
@@ -485,7 +485,7 @@ function addRoomModel(scene, scenario) {
   });
   addStatusLight(root, { position: [1.34, 0.86, -1.77], color: getStatusColor(airStatus), active: airOn, size: [0.13, 0.04, 0.02] });
   if (airOn) {
-    const airLight = new THREE.PointLight(0x40e8a8, 1.3, 2.8);
+    const airLight = new THREE.PointLight(0xfff0c8, 1.3, 2.8);
     airLight.position.set(1.34, 0.86, -1.98);
     root.add(airLight);
   }
@@ -499,7 +499,7 @@ function addRoomModel(scene, scenario) {
   });
   addStatusLight(root, { position: [1.76, 0.63, -1.76], color: getStatusColor(statusOf("제습기")), active: dehumidifierOn, size: [0.1, 0.03, 0.02] });
   if (dehumidifierOn) {
-    const dehumidLight = new THREE.PointLight(0x80c0ff, 0.9, 2.0);
+    const dehumidLight = new THREE.PointLight(0xfff0c8, 0.9, 2.0);
     dehumidLight.position.set(1.76, 0.62, -1.94);
     root.add(dehumidLight);
   }
@@ -554,7 +554,7 @@ function addRoomModel(scene, scenario) {
       castShadow: false,
       receiveShadow: false,
     });
-    const speakerLight = new THREE.PointLight(0xffd05a, 1.6, 3.0);
+    const speakerLight = new THREE.PointLight(0xfff0c8, 1.6, 3.0);
     speakerLight.position.set(2.28, 0.65, 0.46);
     root.add(speakerLight);
   }
@@ -631,7 +631,7 @@ export default function IsometricHomeScene({ scenario }) {
     if (!mount) return undefined;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1e26);
+    scene.background = new THREE.Color(0x2e3440);
 
     const camera = new THREE.OrthographicCamera(-4.8, 4.8, 3.2, -3.2, 0.1, 100);
     camera.position.set(4.55, 4.15, 5.45);
@@ -663,14 +663,14 @@ export default function IsometricHomeScene({ scenario }) {
     renderer.domElement.style.cursor = "grab";
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.HemisphereLight(0xc8d8e8, 0x302820, 0.38);
+    const ambient = new THREE.HemisphereLight(0xdce8f0, 0x5a4830, 0.82);
     scene.add(ambient);
-    const sun = new THREE.DirectionalLight(0xfff8f0, 0.72);
+    const sun = new THREE.DirectionalLight(0xfff8f0, 1.4);
     sun.position.set(-2.5, 5.2, 3.8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xffe3bd, 0.22);
+    const fill = new THREE.DirectionalLight(0xffe3bd, 0.4);
     fill.position.set(4, 2.2, -2);
     scene.add(fill);
 
