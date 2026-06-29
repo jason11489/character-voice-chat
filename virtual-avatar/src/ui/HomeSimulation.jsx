@@ -64,28 +64,6 @@ export default function HomeSimulation() {
 
   return (
     <main className="simulation-shell">
-      <header className="simulation-topbar">
-        <div>
-          <p className="simulation-eyebrow">Boss Home Simulation</p>
-          <h1>{activeDemo.solutionTitle}</h1>
-          <p>{activeDemo.solutionSummary}</p>
-        </div>
-        <div className="simulation-stats" aria-label="홈솔루션 실행 요약">
-          <div>
-            <span>단서</span>
-            <strong>{usedDataCount}/{activeDemo.data.length}</strong>
-          </div>
-          <div>
-            <span>제어</span>
-            <strong>{controlledDeviceCount}</strong>
-          </div>
-          <div>
-            <span>현재</span>
-            <strong>{activeDemo.now}</strong>
-          </div>
-        </div>
-      </header>
-
       <section className="simulation-tabs" aria-label="시뮬레이션 시나리오">
         {activeDemo.custom && (
           <button className="simulation-tab is-active" type="button">

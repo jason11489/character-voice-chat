@@ -9,13 +9,14 @@ function getStatusColor(status) {
 
 function makeDisplayMaterial(title, subtitle, color) {
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 320;
+  canvas.width = 1024;
+  canvas.height = 640;
   const ctx = canvas.getContext("2d");
+  ctx.scale(2, 2);
   const hex = `#${color.toString(16).padStart(6, "0")}`;
 
   ctx.fillStyle = "#111827";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, 512, 320);
   ctx.fillStyle = "rgba(255,255,255,0.08)";
   ctx.fillRect(26, 26, 460, 268);
   ctx.fillStyle = hex;
@@ -43,9 +44,10 @@ function makeDisplayMaterial(title, subtitle, color) {
 
 function makeBadgeMaterial(title, color, { width = 360, height = 120 } = {}) {
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = width * 2;
+  canvas.height = height * 2;
   const ctx = canvas.getContext("2d");
+  ctx.scale(2, 2);
   const hex = `#${color.toString(16).padStart(6, "0")}`;
 
   ctx.fillStyle = "rgba(255,254,248,0.96)";
@@ -68,9 +70,10 @@ function makeBadgeMaterial(title, color, { width = 360, height = 120 } = {}) {
 
 function makeIconMaterial(title, color, { width = 240, height = 180 } = {}) {
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = width * 2;
+  canvas.height = height * 2;
   const ctx = canvas.getContext("2d");
+  ctx.scale(2, 2);
   const hex = `#${color.toString(16).padStart(6, "0")}`;
 
   ctx.clearRect(0, 0, width, height);
@@ -95,13 +98,14 @@ function makeIconMaterial(title, color, { width = 240, height = 180 } = {}) {
 
 function makeRecipeDisplayMaterial(color) {
   const canvas = document.createElement("canvas");
-  canvas.width = 420;
-  canvas.height = 760;
+  canvas.width = 840;
+  canvas.height = 1520;
   const ctx = canvas.getContext("2d");
+  ctx.scale(2, 2);
   const hex = `#${color.toString(16).padStart(6, "0")}`;
 
   ctx.fillStyle = "#0f172a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, 420, 760);
   ctx.fillStyle = "rgba(255,255,255,0.08)";
   ctx.fillRect(26, 26, 368, 708);
   ctx.fillStyle = hex;
@@ -186,29 +190,6 @@ function addStatusLight(group, { position, color, active, size = [0.09, 0.03, 0.
   });
 }
 
-function addSignal(group, { position, color, scale = 1 }) {
-  const signal = new THREE.Group();
-  const crystal = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.12 * scale, 0),
-    createMaterial(color, {
-      emissive: color,
-      emissiveIntensity: 0.5,
-      metalness: 0.08,
-      roughness: 0.22,
-    }),
-  );
-  crystal.scale.set(0.72, 1.24, 0.72);
-  signal.add(crystal);
-
-  const glow = new THREE.PointLight(color, 0.85 * scale, 1.4 * scale);
-  glow.position.set(0, 0, 0.12);
-  signal.add(glow);
-
-  signal.position.set(...position);
-  group.add(signal);
-  return signal;
-}
-
 function addPlant(group, x, z, scale = 1) {
   const pot = createMaterial(0xf7faf5);
   const soil = createMaterial(0x5a3f2b);
@@ -279,6 +260,36 @@ function addSofa(group, x, z, rotationY = 0) {
   sofa.position.set(x, 0, z);
   sofa.rotation.y = rotationY;
   group.add(sofa);
+}
+
+// 스타일러: 로컬 +z가 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
+function addStyler(group, x, z, rotationY, stylerOn, stylerStatus) {
+  const styler = new THREE.Group();
+  addBox(styler, { size: [0.88, 1.62, 0.44], position: [0, 0.81, 0], material: createMaterial(0x1f2328, { roughness: 0.36, emissive: stylerOn ? 0x2a3a50 : 0x000000, emissiveIntensity: stylerOn ? 0.2 : 0 }) });
+  addBox(styler, { size: [0.62, 1.5, 0.05], position: [0.09, 0.86, 0.25], material: createMaterial(0xe9e1d3, { roughness: 0.42 }) });
+  addBox(styler, { size: [0.14, 1.5, 0.055], position: [-0.32, 0.86, 0.26], material: createMaterial(0x15191f, { roughness: 0.32 }) });
+  addBox(styler, { size: [0.74, 0.035, 0.08], position: [0.02, 1.63, 0.27], material: createMaterial(0x111318), castShadow: false });
+  addBox(styler, { size: [0.78, 0.06, 0.14], position: [0.02, 0.03, 0.21], material: createMaterial(0x111318) });
+  addCylinder(styler, { radiusTop: 0.03, radiusBottom: 0.03, height: 0.008, position: [-0.34, 1.45, 0.29], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xf7faf5), segments: 20 });
+  addBox(styler, { size: [0.055, 0.012, 0.01], position: [-0.34, 1.02, 0.30], material: createMaterial(0xf7faf5), castShadow: false });
+  addBox(styler, { size: [0.055, 0.012, 0.01], position: [-0.34, 0.94, 0.30], material: createMaterial(0xf7faf5), castShadow: false });
+  addBox(styler, { size: [0.055, 0.012, 0.01], position: [-0.34, 0.86, 0.30], material: createMaterial(0xf7faf5), castShadow: false });
+  addStatusLight(styler, { position: [-0.34, 0.76, 0.30], color: getStatusColor(stylerStatus), active: stylerStatus === "active", size: [0.07, 0.02, 0.01] });
+  styler.position.set(x, 0, z);
+  styler.rotation.y = rotationY;
+  group.add(styler);
+}
+
+// 워시타워: 로컬 +z가 드럼 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
+function addWashTower(group, x, z, rotationY, washerTowerOn, washerStatus) {
+  const tower = new THREE.Group();
+  addBox(tower, { size: [0.58, 1.18, 0.36], position: [0, 0.59, 0], material: createMaterial(washerTowerOn ? 0xf1f5f8 : 0xc5cdd4, { emissive: washerTowerOn ? 0xd8eaf8 : 0x000000, emissiveIntensity: washerTowerOn ? 0.12 : 0 }) });
+  addCylinder(tower, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [0, 0.93, 0.19], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
+  addCylinder(tower, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [0, 0.35, 0.19], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
+  addStatusLight(tower, { position: [0.27, 1.1, 0.20], color: getStatusColor(washerStatus), active: washerTowerOn, size: [0.09, 0.025, 0.02] });
+  tower.position.set(x, 0, z);
+  tower.rotation.y = rotationY;
+  group.add(tower);
 }
 
 function addRoomModel(scene, scenario) {
@@ -352,13 +363,13 @@ function addRoomModel(scene, scenario) {
   addWindow(root, -1.75, 1.38, -2.48, "x");
   addWindow(root, 0.95, 1.38, -2.48, "x");
 
-  addBox(root, { size: [1.9, 0.04, 1.12], position: [0, 0.035, 0.58], material: rug, castShadow: false });
-  addSofa(root, 0, 1.02, Math.PI);
-  addBox(root, { size: [0.82, 0.18, 0.5], position: [0.18, 0.28, 0.22], material: white });
-  addBox(root, { size: [0.3, 0.46, 0.3], position: [0.72, 0.24, 0.38], material: white });
-  addCylinder(root, { radiusTop: 0.32, radiusBottom: 0.32, height: 0.08, position: [0.98, 0.48, 0.5], material: white });
-  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.5, position: [0.98, 0.25, 0.5], material: gold });
-  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.06, position: [0.98, 0.03, 0.5], material: gold });
+  addBox(root, { size: [1.9, 0.04, 1.12], position: [0.3, 0.035, 0.58], material: rug, castShadow: false });
+  addSofa(root, 0.3, 1.02, Math.PI);
+  addBox(root, { size: [0.82, 0.18, 0.5], position: [0.48, 0.28, 0.22], material: white });
+  addBox(root, { size: [0.3, 0.46, 0.3], position: [1.02, 0.24, 0.38], material: white });
+  addCylinder(root, { radiusTop: 0.32, radiusBottom: 0.32, height: 0.08, position: [1.28, 0.48, 0.5], material: white });
+  addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.5, position: [1.28, 0.25, 0.5], material: gold });
+  addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.06, position: [1.28, 0.03, 0.5], material: gold });
 
   addBox(root, { size: [1.38, 0.52, 0.48], position: [-1.66, 0.26, 0.12], material: white });
   addBox(root, { size: [0.62, 0.06, 0.34], position: [-1.98, 0.55, 0.12], material: createMaterial(0x151515, { roughness: 0.32 }) });
@@ -374,13 +385,6 @@ function addRoomModel(scene, scenario) {
   addBox(root, { size: [1.78, 0.08, 0.38], position: [0, 0.34, -1.96], material: white });
   addBox(root, { size: [1.42, 0.94, 0.08], position: [0, 1.32, -2.28], rotation: [0, 0, 0], material: tvScreen });
   if (tvOn) {
-    addSignal(root, {
-      position: [0, 2.18, -1.9],
-      color: getStatusColor(tvStatus),
-      scale: 1.08,
-    });
-  }
-  if (tvOn) {
     const tvLight = new THREE.PointLight(getStatusColor(tvStatus), 1.4, 2.2);
     tvLight.position.set(0, 1.28, -1.74);
     root.add(tvLight);
@@ -395,13 +399,6 @@ function addRoomModel(scene, scenario) {
     material: acScreen,
     castShadow: false,
   });
-  if (acOn) {
-    addSignal(root, {
-      position: [-1.36, 2.42, -1.92],
-      color: getStatusColor(acStatus),
-      scale: 0.86,
-    });
-  }
   addCylinder(root, { radiusTop: 0.2, radiusBottom: 0.2, height: 0.05, position: [1.36, 0.06, 0.92], material: silver, segments: 32 });
   addCylinder(root, { radiusTop: 0.035, radiusBottom: 0.035, height: 0.66, position: [1.36, 0.39, 0.92], material: silver, segments: 24 });
   addCylinder(root, {
@@ -433,27 +430,9 @@ function addRoomModel(scene, scenario) {
   addPlant(root, 2.18, -1.18, 0.86);
   addPlant(root, -0.92, 2.1, 0.48);
 
-  addBox(root, { size: [0.88, 1.62, 0.44], position: [-2.15, 0.81, 1.29], material: createMaterial(0x1f2328, { roughness: 0.36 }) });
-  addBox(root, { size: [0.62, 1.5, 0.05], position: [-2.06, 0.86, 1.54], material: createMaterial(0xe9e1d3, { roughness: 0.42 }) });
-  addBox(root, { size: [0.14, 1.5, 0.055], position: [-2.47, 0.86, 1.55], material: createMaterial(0x15191f, { roughness: 0.32 }) });
-  addBox(root, { size: [0.74, 0.035, 0.08], position: [-2.13, 1.63, 1.56], material: createMaterial(0x111318), castShadow: false });
-  addBox(root, { size: [0.78, 0.06, 0.14], position: [-2.13, 0.03, 1.5], material: createMaterial(0x111318) });
-  addCylinder(root, { radiusTop: 0.03, radiusBottom: 0.03, height: 0.008, position: [-2.49, 1.45, 1.58], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xf7faf5), segments: 20 });
-  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 1.02, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
-  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 0.94, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
-  addBox(root, { size: [0.055, 0.012, 0.01], position: [-2.49, 0.86, 1.59], material: createMaterial(0xf7faf5), castShadow: false });
-  if (stylerOn) addStatusLight(root, { position: [-2.49, 0.76, 1.59], color: getStatusColor(statusOf("스타일러")), active: statusOf("스타일러") === "active", size: [0.07, 0.02, 0.01] });
-  if (stylerOn) {
-    addSignal(root, {
-      position: [-2.15, 2.18, 1.33],
-      color: getStatusColor(statusOf("스타일러")),
-      scale: 0.92,
-    });
-  }
-  addBox(root, { size: [0.58, 1.18, 0.36], position: [-2.05, 0.59, 1.82], material: createMaterial(0xf1f5f8) });
-  addCylinder(root, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [-2.05, 0.93, 2.01], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
-  addCylinder(root, { radiusTop: 0.18, radiusBottom: 0.18, height: 0.025, position: [-2.05, 0.35, 2.01], rotation: [Math.PI / 2, 0, 0], material: createMaterial(0xcbd5dd), segments: 36 });
-  addStatusLight(root, { position: [-1.78, 1.1, 2.02], color: getStatusColor(statusOf("워시타워")), active: washerTowerOn, size: [0.09, 0.025, 0.02] });
+  addStyler(root, -2.88, 1.1, -Math.PI / 2, stylerOn, statusOf("스타일러"));
+  addWashTower(root, -2.92, 1.82, -Math.PI / 2, washerTowerOn, statusOf("워시타워"));
+
   addBox(root, { size: [0.52, 1.68, 0.5], position: [-2.38, 0.84, -1.48], material: createMaterial(0xe5e7eb) });
   addBox(root, { size: [0.52, 1.68, 0.5], position: [-1.84, 0.84, -1.48], material: createMaterial(0xf0f3f6) });
   addBox(root, { size: [0.03, 1.62, 0.52], position: [-2.11, 0.84, -1.48], material: createMaterial(0xc6d0d8), castShadow: false });
@@ -465,13 +444,6 @@ function addRoomModel(scene, scenario) {
     material: fridgeScreen,
     castShadow: false,
   });
-  if (fridgeOn) {
-    addSignal(root, {
-      position: [-1.82, 2.28, -1.3],
-      color: getStatusColor(statusOf("냉장고 화면")),
-      scale: 1,
-    });
-  }
 
   const airStatus = statusOf("공기청정기");
   const airOn = isDeviceOn("공기청정기");
@@ -480,7 +452,7 @@ function addRoomModel(scene, scenario) {
     radiusBottom: 0.26,
     height: 0.86,
     position: [1.34, 0.43, -1.98],
-    material: createMaterial(0xf1f5f2),
+    material: createMaterial(airOn ? 0xf1f5f2 : 0xbec8c4, { emissive: airOn ? 0xd0ebe0 : 0x000000, emissiveIntensity: airOn ? 0.14 : 0 }),
     segments: 36,
   });
   addStatusLight(root, { position: [1.34, 0.86, -1.77], color: getStatusColor(airStatus), active: airOn, size: [0.13, 0.04, 0.02] });
@@ -489,7 +461,7 @@ function addRoomModel(scene, scenario) {
     radiusBottom: 0.2,
     height: 0.62,
     position: [1.76, 0.31, -1.94],
-    material: createMaterial(0xe9eef1),
+    material: createMaterial(dehumidifierOn ? 0xe9eef1 : 0xbcc4cc, { emissive: dehumidifierOn ? 0xd0e4f0 : 0x000000, emissiveIntensity: dehumidifierOn ? 0.12 : 0 }),
     segments: 36,
   });
   addStatusLight(root, { position: [1.76, 0.63, -1.76], color: getStatusColor(statusOf("제습기")), active: dehumidifierOn, size: [0.1, 0.03, 0.02] });
@@ -536,11 +508,6 @@ function addRoomModel(scene, scenario) {
     size: [0.11, 0.03, 0.02],
   });
   if (speakerOn) {
-    addSignal(root, {
-      position: [2.18, 1.5, 0.62],
-      color: getStatusColor(speakerStatus),
-      scale: 0.78,
-    });
     addBox(root, {
       size: [0.52, 0.36, 0.02],
       position: [2.12, 1.24, 0.64],
