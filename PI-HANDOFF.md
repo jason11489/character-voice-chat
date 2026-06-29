@@ -110,17 +110,33 @@ sh tts-server/fetch-models.sh
 verify: 위 "스크립트가 검증하는 체크포인트 경로" 3개가 존재하고, `~/.cache/huggingface/hub` 에
 `models--myshell-ai--MeloTTS-Korean`, `models--kykim--bert-kor-base` 가 생긴다.
 
-### 4. ⚠️ 최대 난관: 한국어 mecab (`python-mecab-ko`)
+### 4. ⚠️ MeCab 관문 두 개 (melo import 가 모든 언어를 로드해서 둘 다 필요)
 
-MeloTTS 한국어는 `python-mecab-ko` 로 형태소 분석을 한다. ARM 휠이 없으면 빌드가 필요하다.
+**4a. 일본어 MeCab(unidic) — `from melo.api import TTS` 가 여기서 먼저 터진다.**
+melo 는 import 시 일/중/영/한 모든 언어 모듈을 로드하는데, `japanese.py` 가 `MeCab.Tagger()` 를
+초기화하며 unidic 사전을 찾는다. `unidic` 패키지는 사전 본체(~1GB)를 따로 받아야 해서 비어 있다.
+→ 사전 내장본 `unidic-lite` 로 교체(다운로드 단계 없음):
+```bash
+pip uninstall -y unidic
+pip install unidic-lite
+# 잔존 폴더 있으면: rm -rf .venv/.../site-packages/unidic
+```
+verify: `python -c "from melo.api import TTS; from faster_whisper import WhisperModel; print('ok')"` → `ok`
 
-verify 먼저: `tts-server/venv/bin/python -c "import mecab; mecab.MeCab(); print('mecab ok')"`
+**4b. 한국어 mecab(`python-mecab-ko`).**
+verify: `python -c "import mecab; mecab.MeCab(); print('mecab ok')"`
 - 통과하면 넘어간다.
 - 실패(사전 못 찾음/빌드 오류)하면: `mecab-ko` + `mecab-ko-dic` 를 소스로 빌드 후 재설치.
   (apt 의 `mecab-ipadic` 는 일본어 사전이라 한국어엔 안 맞음. `mecab-ko-dic` 가 필요.)
 
 ### 5. 프론트 빌드
 
+Node.js/npm 이 없으면 먼저 설치 (Raspberry Pi OS 기본 apt node 는 구버전일 수 있어 NodeSource 권장):
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs       # npm 포함
+node -v && npm -v                # v20.x / 10.x
+```
 ```bash
 cd virtual-avatar
 npm install
