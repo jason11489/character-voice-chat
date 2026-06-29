@@ -5,6 +5,7 @@ import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./
 import { transcribeAudio } from "./api/sttApi.js";
 import { connectAudioElement } from "./avatar/audioLipSync.js";
 import { demoEvents } from "./mock/demoEvents.js";
+import { writeSyncedDemoId } from "./state/homeSync.js";
 
 const avatarModels = [
   {
@@ -257,6 +258,10 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    writeSyncedDemoId(activeDemo.id);
+  }, [activeDemo.id]);
 
   useEffect(() => {
     const id = setInterval(() => setClock(formatClock(new Date())), 1000);
@@ -813,6 +818,10 @@ export default function App() {
           </div>
           <span>{usedDataCount}개 단서 · 0.8초</span>
         </div>
+
+        <a className="simulation-link" href="/simulation" target="_blank" rel="noreferrer">
+          옆 모니터 시뮬레이션 열기
+        </a>
 
         <div className="section-block">
           <div className="section-title">음성 설정{ttsBackend ? ` · ${ttsBackend}` : ""}</div>

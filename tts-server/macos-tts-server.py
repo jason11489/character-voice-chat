@@ -414,9 +414,11 @@ class Handler(BaseHTTPRequestHandler):
         base = os.path.realpath(ARGS.serve_dir)
         full = os.path.realpath(os.path.join(base, rel))
         if not full.startswith(base) or not os.path.isfile(full):
-            self.send_response(404); self._cors(); self.end_headers()
-            self.wfile.write(b"not found")
-            return
+            full = os.path.realpath(os.path.join(base, "index.html"))
+            if not full.startswith(base) or not os.path.isfile(full):
+                self.send_response(404); self._cors(); self.end_headers()
+                self.wfile.write(b"not found")
+                return
         ctype = static_content_type(full)
         with open(full, "rb") as f:
             data = f.read()
