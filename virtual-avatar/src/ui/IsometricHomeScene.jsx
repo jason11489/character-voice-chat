@@ -262,7 +262,7 @@ function addSofa(group, x, z, rotationY = 0) {
   group.add(sofa);
 }
 
-// 스타일러: 로컬 +z가 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
+// 스타일러: 로컬 +z가 정면. rotationY=+π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
 function addStyler(group, x, z, rotationY, stylerOn, stylerStatus) {
   const styler = new THREE.Group();
   addBox(styler, { size: [0.88, 1.62, 0.44], position: [0, 0.81, 0], material: createMaterial(stylerOn ? 0x2a3848 : 0x141618, { roughness: 0.36, emissive: stylerOn ? 0x3060a0 : 0x000000, emissiveIntensity: stylerOn ? 0.55 : 0 }) });
@@ -280,7 +280,7 @@ function addStyler(group, x, z, rotationY, stylerOn, stylerStatus) {
   group.add(styler);
 }
 
-// 워시타워: 로컬 +z가 드럼 정면. rotationY=-π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
+// 워시타워: 로컬 +z가 드럼 정면. rotationY=+π/2 로 배치하면 정면이 +x(실내 방향)를 향한다.
 function addWashTower(group, x, z, rotationY, washerTowerOn, washerStatus) {
   const tower = new THREE.Group();
   addBox(tower, { size: [0.58, 1.18, 0.36], position: [0, 0.59, 0], material: createMaterial(washerTowerOn ? 0xf1f5f8 : 0x8a98a8, { emissive: washerTowerOn ? 0xa8d4f8 : 0x000000, emissiveIntensity: washerTowerOn ? 0.45 : 0 }) });
@@ -443,13 +443,13 @@ function addRoomModel(scene, scenario) {
   addPlant(root, 2.18, -1.18, 0.86);
   addPlant(root, -0.92, 2.1, 0.48);
 
-  addStyler(root, -2.88, 1.1, -Math.PI / 2, stylerOn, statusOf("스타일러"));
+  addStyler(root, -2.88, 1.1, Math.PI / 2, stylerOn, statusOf("스타일러"));
   if (stylerOn) {
     const stylerLight = new THREE.PointLight(0xfff0c8, 1.1, 2.4);
     stylerLight.position.set(-2.44, 0.9, 1.1);
     root.add(stylerLight);
   }
-  addWashTower(root, -2.92, 1.82, -Math.PI / 2, washerTowerOn, statusOf("워시타워"));
+  addWashTower(root, -2.92, 1.82, Math.PI / 2, washerTowerOn, statusOf("워시타워"));
   if (washerTowerOn) {
     const washerLight = new THREE.PointLight(0xfff0c8, 0.9, 2.0);
     washerLight.position.set(-2.44, 0.5, 1.82);
@@ -485,8 +485,8 @@ function addRoomModel(scene, scenario) {
   });
   addStatusLight(root, { position: [1.34, 0.86, -1.77], color: getStatusColor(airStatus), active: airOn, size: [0.13, 0.04, 0.02] });
   if (airOn) {
-    const airLight = new THREE.PointLight(0xfff0c8, 1.3, 2.8);
-    airLight.position.set(1.34, 0.86, -1.98);
+    const airLight = new THREE.PointLight(0xfff0c8, 1.0, 2.6);
+    airLight.position.set(1.34, 0.86, -1.5);
     root.add(airLight);
   }
   addCylinder(root, {
@@ -499,8 +499,8 @@ function addRoomModel(scene, scenario) {
   });
   addStatusLight(root, { position: [1.76, 0.63, -1.76], color: getStatusColor(statusOf("제습기")), active: dehumidifierOn, size: [0.1, 0.03, 0.02] });
   if (dehumidifierOn) {
-    const dehumidLight = new THREE.PointLight(0xfff0c8, 0.9, 2.0);
-    dehumidLight.position.set(1.76, 0.62, -1.94);
+    const dehumidLight = new THREE.PointLight(0xfff0c8, 0.8, 2.0);
+    dehumidLight.position.set(1.76, 0.62, -1.5);
     root.add(dehumidLight);
   }
 
