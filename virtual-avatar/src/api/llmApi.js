@@ -479,10 +479,7 @@ const DEVICE_TO_LED = {
   "정수기": "F",
 };
 
-export function sendDeviceCommands(devices) {
-  const commands = devices
-    .filter((d) => DEVICE_TO_LED[d.name])
-    .map((d) => ({ led: DEVICE_TO_LED[d.name], state: d.status === "active" ? "on" : "off" }));
+function postLedCommands(commands) {
   if (!commands.length) return;
   const url = isProxiedHttps()
     ? "/led"
@@ -493,6 +490,17 @@ export function sendDeviceCommands(devices) {
     body: JSON.stringify({ commands }),
     signal: AbortSignal.timeout(2000),
   }).catch(() => { });
+}
+
+export function sendDeviceCommands(devices) {
+  const commands = devices
+    .filter((d) => DEVICE_TO_LED[d.name])
+    .map((d) => ({ led: DEVICE_TO_LED[d.name], state: d.status === "active" ? "on" : "off" }));
+  postLedCommands(commands);
+}
+
+export function turnOffAllLeds() {
+  postLedCommands(Object.values(DEVICE_TO_LED).map((led) => ({ led, state: "off" })));
 }
 
 export function getTtsApiBase() {

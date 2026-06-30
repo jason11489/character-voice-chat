@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import AvatarScene from "./avatar/AvatarScene.jsx";
-import { askPiLLM, getApiBase, warmupLLM, resetLLMSession, sendDeviceCommands } from "./api/llmApi.js";
+import { askPiLLM, getApiBase, warmupLLM, resetLLMSession, sendDeviceCommands, turnOffAllLeds } from "./api/llmApi.js";
 import { getTTSHealth, getTTSVoices, prefetchSpeech, synthesizeSpeech } from "./api/ttsApi.js";
 import { transcribeAudio } from "./api/sttApi.js";
 import { connectAudioElement } from "./avatar/audioLipSync.js";
@@ -878,6 +878,23 @@ export default function App() {
     }
   }
 
+  async function handleResetDevices() {
+    if (loading || resetting) return;
+    setResetting(true);
+    stopAudio();
+    turnOffAllLeds();
+    const clearedDemo = { ...activeDemo, devices: [] };
+    setActiveDemo(clearedDemo);
+    setLlmState("warming");
+    try {
+      await resetLLMSession(buildScenarioContext(clearedDemo));
+      setErrorText("");
+      setLlmState("ready");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   function applyDemo(demo) {
     setActiveDemo(demo);
     pushUserTurn(demo.userText);
@@ -1145,14 +1162,24 @@ export default function App() {
             <button className="primary-button" type="submit" disabled={loading || warming || resetting}>
               {warming ? "준비 중" : loading ? "분석 중" : "실행"}
             </button>
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={handleResetSession}
-              disabled={loading || warming || resetting}
-            >
-              {resetting ? "초기화 중" : "세션 초기화"}
-            </button>
+            <div className="reset-actions">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleResetSession}
+                disabled={loading || warming || resetting}
+              >
+                {resetting ? "초기화 중" : "세션 초기화"}
+              </button>
+              <button
+                className="ghost-button ghost-button--sm"
+                type="button"
+                onClick={handleResetDevices}
+                disabled={loading || warming || resetting}
+              >
+                기기 초기화
+              </button>
+            </div>
           </form>
         </div>
       </section>
