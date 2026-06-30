@@ -436,11 +436,11 @@ export function getApiBase() {
 
 const DEVICE_TO_LED = {
   "TV": "A",
-  "스피커": "B",
-  "조명": "C",
-  "로봇청소기": "D",
-  "공기청정기": "E",
-  "워시타워": "F",
+  "조명": "B",
+  "공기청정기": "C",
+  "냉장고 화면": "D",
+  "스타일러": "E",
+  "정수기": "F",
 };
 
 export function sendDeviceCommands(devices) {
