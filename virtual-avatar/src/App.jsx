@@ -7,19 +7,23 @@ import { connectAudioElement } from "./avatar/audioLipSync.js";
 import { demoEvents } from "./mock/demoEvents.js";
 import { writeSyncedDemoId, writeSyncedScenario } from "./state/homeSync.js";
 
+const LLM_MODEL_LABEL = "Qwen3-30B-A3B · 4bit";
+const LLM_RUNTIME_LABEL = "라즈베리파이5 8GB ×4 · TP 분산";
+
 const avatarModels = [
   {
     id: "round",
     label: "보스 치킨",
     name: "보스 치킨",
     modelPath: "/models/untitled-colored.glb",
-    verticalOffset: 0.1,
+    verticalOffset: 0.2,
   },
   {
     id: "human",
     label: "보스베이비",
     name: "보스베이비",
     modelPath: "/models/chat_character.glb",
+    verticalOffset: 0.1,
   },
 ];
 
@@ -304,6 +308,8 @@ export default function App() {
   const [llmState, setLlmState] = useState("ready");
   const [ttsState, setTtsState] = useState("idle");
   const [ttsBackend, setTtsBackend] = useState("");
+  const [sttModel, setSttModel] = useState("");
+  const [llmMetrics, setLlmMetrics] = useState({ ttftMs: null, tps: null });
   const [ttsVoices, setTtsVoices] = useState([]);
   const [ttsVoice, setTtsVoice] = useState("");
   const [ttsRate, setTtsRate] = useState(1);
@@ -381,6 +387,7 @@ export default function App() {
         const health = await getTTSHealth();
         if (!cancelled) {
           setTtsBackend(health.backend || "");
+          setSttModel(health.stt_model || "");
           if (typeof health.melo_sdp_ratio === "number") setTtsSdp(health.melo_sdp_ratio);
           if (typeof health.melo_noise_scale_w === "number") setTtsNoise(health.melo_noise_scale_w);
         }
@@ -713,6 +720,9 @@ export default function App() {
           streamedText = fullText;
           sentenceSplitter.push(delta);
         },
+        onMetrics(metrics) {
+          setLlmMetrics(metrics);
+        },
         }
       );
       sentenceSplitter.flush();
@@ -927,6 +937,37 @@ export default function App() {
         <a className="simulation-link" href="/simulation" target="_blank" rel="noreferrer">
           옆 모니터 시뮬레이션 열기
         </a>
+
+        <div className="section-block">
+          <div className="section-title">엔진 정보</div>
+          <div className="engine-info">
+            <div className="engine-card engine-card-wide">
+              <span>LLM</span>
+              <strong>{LLM_MODEL_LABEL}</strong>
+              <small>{LLM_RUNTIME_LABEL}</small>
+            </div>
+            <div className="engine-card">
+              <span>STT</span>
+              <strong>{sttModel ? `faster-whisper · ${sttModel}` : "—"}</strong>
+            </div>
+            <div className="engine-card">
+              <span>TTS</span>
+              <strong>{ttsBackend || "—"}</strong>
+            </div>
+            <div className="engine-card">
+              <span>TTFT</span>
+              <strong>
+                {llmMetrics.ttftMs != null ? `${Math.round(llmMetrics.ttftMs)} ms` : "—"}
+              </strong>
+            </div>
+            <div className="engine-card">
+              <span>TPS</span>
+              <strong>
+                {llmMetrics.tps != null ? `${llmMetrics.tps.toFixed(1)} tok/s` : "—"}
+              </strong>
+            </div>
+          </div>
+        </div>
 
         <div className="section-block">
           <div className="section-title">음성 설정{ttsBackend ? ` · ${ttsBackend}` : ""}</div>

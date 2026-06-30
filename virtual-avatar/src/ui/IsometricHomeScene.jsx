@@ -246,6 +246,22 @@ function addWindow(group, x, y, z, axis = "x") {
   addBox(group, { size: [0.14, 1.33, 0.09], position: [x + 0.82, y - 0.05, z + 0.03], rotation, material: curtain });
 }
 
+function addLogoPlaque(group, { position, size = 0.6 }) {
+  const [x, y, z] = position;
+  // 벽에 살짝 도드라진 흰 프레임 + 그 앞에 로고 패널
+  const frameMat = createMaterial(0xffffff, { roughness: 0.5 });
+  addBox(group, { size: [size + 0.1, size + 0.1, 0.05], position: [x, y, z + 0.025], material: frameMat });
+
+  const texture = new THREE.TextureLoader().load("/home-logo.png");
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const logoMat = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.55 });
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(size, size), logoMat);
+  logo.position.set(x, y, z + 0.055);
+  logo.castShadow = false;
+  logo.receiveShadow = false;
+  group.add(logo);
+}
+
 function addSofa(group, x, z, rotationY = 0) {
   const sofa = new THREE.Group();
   const fabric = createMaterial(0xd8c7ad);
@@ -398,6 +414,9 @@ function addRoomModel(scene, scenario) {
   }
   addBox(root, { size: [0.08, 2.0, 0.09], position: [-0.62, 1.0, -2.28], material: gold });
   addBox(root, { size: [0.08, 2.0, 0.09], position: [0.62, 1.0, -2.28], material: gold });
+
+  // TV 오른쪽(창문 너머) 벽면에 스마트홈 로고 액자
+  addLogoPlaque(root, { position: [2.28, 1.52, -2.3], size: 0.62 });
 
   addBox(root, { size: [0.78, 0.22, 0.24], position: [-1.36, 2.04, -2.08], material: silver });
   addBox(root, {

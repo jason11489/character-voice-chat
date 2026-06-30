@@ -245,16 +245,24 @@ function extractPartialJsonText(raw) {
   return result;
 }
 
-async function readStreamingChatResponse(res, onTextDelta) {
+async function readStreamingChatResponse(res, options, requestStart) {
   const reader = res.body?.getReader();
   if (!reader) {
     throw new Error("Streaming response body is not readable");
   }
 
+  const { onTextDelta, onMetrics } = options;
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
   let emittedText = "";
+  // TTFT/TPS: count one token per content-bearing delta (dllama streams a
+  // token at a time), time the first token, then derive throughput. TPS is a
+  // running average (tokens / elapsed since first token) so the live number
+  // converges to the session-final average when the stream ends.
+  let firstTokenAt = 0;
+  let tokenCount = 0;
+  let lastMetricsAt = 0;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -286,6 +294,21 @@ async function readStreamingChatResponse(res, onTextDelta) {
         delta?.content || delta?.reasoning_content || "",
       );
       if (deltaText) {
+        tokenCount += 1;
+        const now = performance.now();
+        if (!firstTokenAt) {
+          firstTokenAt = now;
+          lastMetricsAt = now;
+          onMetrics?.({ ttftMs: firstTokenAt - requestStart, tps: null });
+        } else if (now - lastMetricsAt >= 200) {
+          // Live running average, throttled so we don't re-render per token.
+          const genSeconds = (now - firstTokenAt) / 1000;
+          onMetrics?.({
+            ttftMs: firstTokenAt - requestStart,
+            tps: genSeconds > 0 ? tokenCount / genSeconds : null,
+          });
+          lastMetricsAt = now;
+        }
         content += deltaText;
         const partialText = extractPartialJsonText(content);
         if (partialText.length > emittedText.length) {
@@ -300,15 +323,24 @@ async function readStreamingChatResponse(res, onTextDelta) {
     }
   }
 
+  if (firstTokenAt && tokenCount > 0) {
+    const genSeconds = (performance.now() - firstTokenAt) / 1000;
+    onMetrics?.({
+      ttftMs: firstTokenAt - requestStart,
+      tps: genSeconds > 0 ? tokenCount / genSeconds : null,
+    });
+  }
+
   // Return untrimmed so the exact text can be replayed as cache-matching history.
   return content;
 }
 
 async function sendChat(messages, options = {}) {
   const apiBase = getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
-  const model = import.meta.env.VITE_LLM_MODEL || "distributed-llama";
+  const model = getLlmModel();
   const useStreaming =
     String(import.meta.env.VITE_LLM_STREAM || "true").toLowerCase() === "true";
+  const requestStart = performance.now();
   const res = await fetch(`${apiBase}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -331,7 +363,7 @@ async function sendChat(messages, options = {}) {
 
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("text/event-stream")) {
-    return await readStreamingChatResponse(res, options.onTextDelta);
+    return await readStreamingChatResponse(res, options, requestStart);
   }
 
   const responseJson = contentType.includes("application/json")
@@ -432,6 +464,10 @@ function isProxiedHttps() {
 export function getApiBase() {
   if (isProxiedHttps()) return "";
   return getEnvBase("VITE_PI_API_BASE", getDefaultApiBase());
+}
+
+export function getLlmModel() {
+  return import.meta.env.VITE_LLM_MODEL || "distributed-llama";
 }
 
 const DEVICE_TO_LED = {
