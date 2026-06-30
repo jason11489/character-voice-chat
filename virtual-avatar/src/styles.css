@@ -640,11 +640,6 @@ button {
   font-weight: 950;
 }
 
-.solution-item.is-ready .solution-status {
-  background: #fff3d6;
-  color: #8a5700;
-}
-
 .solution-item.is-idle {
   opacity: 0.64;
 }
@@ -969,11 +964,6 @@ button {
 .device-signal.is-active {
   border-color: rgba(53, 164, 126, 0.48);
   background: rgba(232, 249, 238, 0.94);
-}
-
-.device-signal.is-ready .device-signal-index {
-  background: #fff0c2;
-  color: #8a5700;
 }
 
 .assistant-label small {
@@ -1530,11 +1520,6 @@ body,
   box-shadow: 0 0 0 5px rgba(53, 164, 126, 0.14);
 }
 
-.simulation-device-pill.is-ready > span {
-  background: #f6b73c;
-  box-shadow: 0 0 0 5px rgba(246, 183, 60, 0.14);
-}
-
 .simulation-device-pill div {
   flex: 1 1 auto;
   min-width: 0;
@@ -1701,11 +1686,6 @@ body,
 .sim-device.is-active .sim-device-light {
   background: #35a47e;
   box-shadow: 0 0 0 6px rgba(53, 164, 126, 0.14), 0 0 18px rgba(53, 164, 126, 0.56);
-}
-
-.sim-device.is-ready .sim-device-light {
-  background: #f6b73c;
-  box-shadow: 0 0 0 5px rgba(246, 183, 60, 0.16);
 }
 
 .sim-device strong,

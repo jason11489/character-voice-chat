@@ -4,7 +4,7 @@ const SYSTEM_PROMPT = `
 사용자의 요청과 집 상태를 바탕으로 답변하라. 반드시 JSON 형식으로만 출력하라.
 
 출력 형식:
-{"text": "사용자에게 말할 짧은 한국어 문장", "homeSolution": {"title": "홈솔루션 제목", "summary": "가전 제어 결과 한 문장", "devices": [{"name": "허용 가전명", "state": "짧은 상태", "status": "active|ready|idle"}]}}
+{"text": "사용자에게 말할 짧은 한국어 문장", "homeSolution": {"title": "홈솔루션 제목", "summary": "가전 제어 결과 한 문장", "devices": [{"name": "허용 가전명", "state": "짧은 상태", "status": "active|idle"}]}}
 
 허용 가전명: TV, 스피커, 조명, 로봇청소기, 공기청정기, 제습기, 선풍기, 냉장고 화면, 스타일러, 워시타워, 정수기, 인덕션, 식기세척기
 
@@ -13,14 +13,14 @@ const SYSTEM_PROMPT = `
 규칙:
 - text는 1~3문장. 리스트 나열 금지.
 - 위험하거나 불확실한 제어는 확인 요청.
-- homeSolution.devices는 3~6개. active=실행, ready=준비, idle=대기.
-- 직접 관련 가전이 부족하면 맥락상 연관 가전을 ready/idle로 추가. 관련 가전 없을 때만 빈 배열.
-- 로봇청소기는 집에 사람 있으면 반드시 idle.
+- homeSolution.devices에는 이번 요청에서 실제로 제어한 가전만 0~6개 넣어라. 켜면 active, 끄면 idle. 제어할 가전이 없으면 빈 배열.
+- 이전에 켜둔 가전은 시스템이 알아서 유지하니, 다시 켜는 가전을 중복 나열하지 마라.
+- 로봇청소기는 집에 사람이 있으면 켜지 마라.
 - JSON 외 출력 금지.
 
 예시:
-{"text": "오셨습니까. 보스. 거실 조명은 이미 켜뒀습니다. 공기청정기는 곧 가동하겠습니다.", "homeSolution": {"title": "귀가 맞춤 루틴", "summary": "조명과 공기를 먼저 정리했습니다.", "devices": [{"name": "조명", "state": "거실 밝기 72%", "status": "active"}, {"name": "공기청정기", "state": "쾌적 모드", "status": "ready"}, {"name": "TV", "state": "대기 중", "status": "idle"}]}}
-{"text": "라면 물 880ml 출수 완료했습니다. 맞춤 프리셋에 등록해두면 다음엔 버튼 하나로 됩니다.", "homeSolution": {"title": "정수기 출수", "summary": "정수 880ml 출수했습니다.", "devices": [{"name": "정수기", "state": "정수 880ml 출수", "status": "active"}, {"name": "인덕션", "state": "대기 중", "status": "idle"}, {"name": "조명", "state": "주방 밝기 유지", "status": "idle"}]}}
+{"text": "오셨습니까. 보스. 거실 조명을 켜고 공기청정기를 가동했습니다.", "homeSolution": {"title": "귀가 맞춤 루틴", "summary": "조명과 공기를 먼저 정리했습니다.", "devices": [{"name": "조명", "state": "거실 밝기 72%", "status": "active"}, {"name": "공기청정기", "state": "쾌적 모드", "status": "active"}]}}
+{"text": "TV를 끄고 스피커로 차분한 음악을 틀었습니다.", "homeSolution": {"title": "취침 전 정리", "summary": "화면을 끄고 음악으로 전환했습니다.", "devices": [{"name": "TV", "state": "전원 종료", "status": "idle"}, {"name": "스피커", "state": "차분한 음악 재생", "status": "active"}]}}
 `.trim();
 
 const ALLOWED_DEVICE_NAMES = new Set([
@@ -38,7 +38,7 @@ const ALLOWED_DEVICE_NAMES = new Set([
   "인덕션",
   "식기세척기",
 ]);
-const ALLOWED_DEVICE_STATUSES = new Set(["active", "ready", "idle"]);
+const ALLOWED_DEVICE_STATUSES = new Set(["active", "idle"]);
 
 const MAX_SEQ_LEN = Number(import.meta.env.VITE_LLM_MAX_SEQ_LEN) || 4096;
 const RESET_RATIO = 0.85;
@@ -187,7 +187,7 @@ function sanitizeResponse(data) {
   const devices = rawDevices.slice(0, 6).flatMap((device) => {
     const name = String(device?.name || "").trim();
     if (!ALLOWED_DEVICE_NAMES.has(name)) return [];
-    const status = ALLOWED_DEVICE_STATUSES.has(device?.status) ? device.status : "ready";
+    const status = ALLOWED_DEVICE_STATUSES.has(device?.status) ? device.status : "idle";
     return [{
       name,
       state: String(device?.state || "준비").slice(0, 36),

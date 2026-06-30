@@ -78,8 +78,7 @@ function ChatWindow({ messages, liveAvatarText }) {
 
 function getDeviceSignalLabel(status) {
   if (status === "active") return "실행 중";
-  if (status === "ready") return "명령 대기";
-  return "대기";
+  return "꺼짐";
 }
 
 function estimateSpeechMs(text) {
@@ -131,17 +130,17 @@ function normalizeLLMResult(result, fallback) {
 const requestDeviceRules = [
   { keywords: ["조용", "시끄", "회의", "발표", "집중", "소음"], device: { name: "로봇청소기", state: "예약 일시정지", status: "active" } },
   { keywords: ["조용", "회의", "발표", "집중", "밝"], device: { name: "조명", state: "전면 밝기 72%", status: "active" } },
-  { keywords: ["더워", "덥", "운동", "샤워", "바람", "시원"], device: { name: "선풍기", state: "약풍 예약", status: "ready" } },
+  { keywords: ["더워", "덥", "운동", "샤워", "바람", "시원"], device: { name: "선풍기", state: "약풍 예약", status: "active" } },
   { keywords: ["습", "꿉꿉", "비", "회식", "냄새"], device: { name: "공기청정기", state: "쾌적 모드", status: "active" } },
   { keywords: ["습", "꿉꿉", "비", "빨래"], device: { name: "제습기", state: "습도 50% 목표", status: "active" } },
-  { keywords: ["옷", "정장", "냄새", "회식", "스타일러"], device: { name: "스타일러", state: "의류 케어 준비", status: "ready" } },
-  { keywords: ["빨래", "세탁", "건조"], device: { name: "워시타워", state: "세탁 건조 예약", status: "ready" } },
+  { keywords: ["옷", "정장", "냄새", "회식", "스타일러"], device: { name: "스타일러", state: "의류 케어 준비", status: "active" } },
+  { keywords: ["빨래", "세탁", "건조"], device: { name: "워시타워", state: "세탁 건조 예약", status: "active" } },
   { keywords: ["운동", "쉐이크", "단백질", "레시피", "냉장고"], device: { name: "냉장고 화면", state: "추천 레시피 표시", status: "active" } },
-  { keywords: ["물", "냉수", "정수"], device: { name: "정수기", state: "냉수 준비", status: "ready" } },
-  { keywords: ["밥", "요리", "저녁", "인덕션"], device: { name: "인덕션", state: "조리 대기", status: "ready" } },
-  { keywords: ["설거지", "그릇", "식기"], device: { name: "식기세척기", state: "세척 예약", status: "ready" } },
-  { keywords: ["드라마", "영상", "티비", "tv", "스트레칭"], device: { name: "TV", state: "콘텐츠 준비", status: "ready" } },
-  { keywords: ["음악", "노래", "플레이리스트", "스피커"], device: { name: "스피커", state: "플레이리스트 준비", status: "ready" } },
+  { keywords: ["물", "냉수", "정수"], device: { name: "정수기", state: "냉수 준비", status: "active" } },
+  { keywords: ["밥", "요리", "저녁", "인덕션"], device: { name: "인덕션", state: "조리 대기", status: "active" } },
+  { keywords: ["설거지", "그릇", "식기"], device: { name: "식기세척기", state: "세척 예약", status: "active" } },
+  { keywords: ["드라마", "영상", "티비", "tv", "스트레칭"], device: { name: "TV", state: "콘텐츠 준비", status: "active" } },
+  { keywords: ["음악", "노래", "플레이리스트", "스피커"], device: { name: "스피커", state: "플레이리스트 준비", status: "active" } },
 ];
 
 function uniqueDevices(devices) {
@@ -153,6 +152,21 @@ function uniqueDevices(devices) {
   });
 }
 
+// Each LLM turn only reports the devices it controlled this request. Carry the
+// previously-on devices forward so the home state accumulates: this turn's
+// devices stay first (and survive the cap), idle ones are turned off (removed),
+// and still-on devices from earlier turns trail behind.
+function accumulateDevices(previous, incoming) {
+  const turnedOff = new Set(
+    incoming.filter((d) => d.status !== "active").map((d) => d.name),
+  );
+  const active = incoming.filter((d) => d.status === "active");
+  const carriedOver = previous.filter(
+    (d) => d.status === "active" && !turnedOff.has(d.name),
+  );
+  return uniqueDevices([...active, ...carriedOver]).slice(0, 6);
+}
+
 function buildFallbackDevices(userText) {
   const lower = userText.toLowerCase();
   const matched = requestDeviceRules
@@ -162,8 +176,8 @@ function buildFallbackDevices(userText) {
   if (matched.length > 0) return uniqueDevices(matched).slice(0, 6);
 
   return [
-    { name: "조명", state: "편안한 밝기", status: "ready" },
-    { name: "공기청정기", state: "자동 운전", status: "ready" },
+    { name: "조명", state: "편안한 밝기", status: "active" },
+    { name: "공기청정기", state: "자동 운전", status: "active" },
   ];
 }
 
@@ -171,7 +185,8 @@ function createRequestScenario(userText, result, baseScenario) {
   const solutionDevices = Array.isArray(result?.homeSolution?.devices)
     ? result.homeSolution.devices
     : [];
-  const devices = uniqueDevices(solutionDevices.length ? solutionDevices : buildFallbackDevices(userText)).slice(0, 6);
+  const incoming = solutionDevices.length ? solutionDevices : buildFallbackDevices(userText);
+  const devices = accumulateDevices(baseScenario.devices, incoming);
   const now = formatClock(new Date());
   const title = result?.homeSolution?.title || "요청 기반 홈솔루션";
   const summary = result?.homeSolution?.summary || "말씀하신 요청에 맞춰 필요한 가전을 배치했습니다.";
@@ -726,7 +741,9 @@ export default function App() {
 
   function handleSubmit(e) {
     e.preventDefault();
+    if (!userText.trim() || loading || warming || resetting) return;
     runPrompt(userText);
+    setUserText("");
   }
 
   // 말이 끝나면(일정 시간 침묵) 자동으로 녹음을 멈춰 버튼 재클릭 없이 바로 전사로 넘긴다.

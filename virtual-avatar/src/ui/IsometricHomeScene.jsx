@@ -3,7 +3,6 @@ import * as THREE from "three";
 
 function getStatusColor(status) {
   if (status === "active") return 0x16a36d;
-  if (status === "ready") return 0x4f8cff;
   return 0x98a2b3;
 }
 
@@ -296,7 +295,7 @@ function addRoomModel(scene, scenario) {
   const root = new THREE.Group();
   const deviceByName = Object.fromEntries(scenario.devices.map((device) => [device.name, device]));
   const statusOf = (name) => deviceByName[name]?.status || "idle";
-  const isDeviceOn = (name) => statusOf(name) === "active" || statusOf(name) === "ready";
+  const isDeviceOn = (name) => statusOf(name) === "active";
   const wall = createMaterial(0xf8f6ef);
   const brick = createMaterial(0xe7dfd2);
   const wood = createMaterial(0xc79b62, { roughness: 0.64 });

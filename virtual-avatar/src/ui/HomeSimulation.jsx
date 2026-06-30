@@ -18,8 +18,7 @@ function getInitialScenario() {
 
 function getDeviceStatusLabel(status) {
   if (status === "active") return "실행";
-  if (status === "ready") return "준비";
-  return "대기";
+  return "꺼짐";
 }
 
 export default function HomeSimulation() {
