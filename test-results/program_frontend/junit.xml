@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="13" failures="0" errors="0" time="0.378">
+    <testsuite name="tests/program_frontend/llmApi.test.js" timestamp="2026-07-01T08:42:22.901Z" hostname="gimseung-uui-MacBookAir.local" tests="8" failures="0" errors="0" skipped="0" time="0.023454584">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 허용 가전만 남기고 필드 길이를 제한한다" time="0.018005458">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 코드블록/think 태그로 감싼 JSON도 파싱한다" time="0.001105875">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; JSON 이 아니면 텍스트 폴백으로 응답한다" time="0.000687875">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; R-02: OpenAI 호환 엔드포인트로 POST 한다" time="0.000595292">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 매핑된 가전만 LED on/off 명령으로 변환해 전송한다" time="0.000808708">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 제어할 가전이 없으면 요청하지 않는다" time="0.00045325">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; turnOffAllLeds 는 6개 LED 를 모두 off 로 보낸다" time="0.000718792">
+        </testcase>
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-02 설정 기본값 (엔드포인트/모델) &gt; 모델/베이스 URL 기본값을 반환한다" time="0.00045975">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/program_frontend/ttsApi.test.js" timestamp="2026-07-01T08:42:22.902Z" hostname="gimseung-uui-MacBookAir.local" tests="5" failures="0" errors="0" skipped="0" time="0.023812209">
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; text/rate/voice/prosody 를 쿼리로 구성하고 blob 을 반환한다" time="0.019122041">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 같은 요청은 캐시해서 한 번만 합성한다" time="0.001139834">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 실패하면 에러를 던지고 캐시에 남기지 않는다" time="0.001253458">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSHealth 는 /health JSON 을 반환한다" time="0.00106875">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSVoices 는 voices 배열을 반환한다" time="0.000627917">
+        </testcase>
+    </testsuite>
+</testsuites>
