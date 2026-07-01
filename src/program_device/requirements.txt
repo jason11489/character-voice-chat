@@ -1,0 +1,2 @@
+# program_device / led_bridge.py 의존성
+requests==2.34.2

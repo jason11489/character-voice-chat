@@ -58,7 +58,13 @@
 | R-03 응답 스키마 `{text, homeSolution}` | `sanitizeResponse`/`extractJson` | frontend |
 | R-05 TTS 합성·음색·상태 | `/tts` `/voices` `/health`, ttsApi | backend, frontend |
 | R-07·R-12 가전 제어(LED) | `sendDeviceCommands`, `led_bridge` | frontend, device |
+| R-08 복수 개인데이터 종합 | `demoEvents` context 조립, `askPiLLM(context)` | frontend |
+| R-09 컨텍스트별 차등 동작 | 동일 발화·상이 context → 상이 요청 | frontend |
+| R-10·R-11 시나리오①·② | `demoEvents` 시나리오 정의(순서/동작) | frontend |
+| R-13 가전 결과 시각화 | devices name·state·status 렌더 필드 | frontend |
+| R-14 시청기록 활용(옵션) | `demoEvents` viewing 데이터 활용 | frontend |
+| R-16 로컬 처리(프라이버시) | 엔드포인트 localhost/사설 LAN 한정 | frontend |
 | R-17 통합 UI 서빙·경로보안 | 정적 서빙·CORS·traversal 방지 | backend |
 
-> R-04(4노드 TP 구동), R-06(립싱크), R-08~R-11(컨텍스트 시나리오), R-13(시각화),
-> R-16(로컬 처리) 등은 시연영상 타임스탬프로 입증합니다(요구사항 명세서 참조).
+> R-04(4노드 TP 실기동)·R-06(립싱크 시각 동작)·R-15(응답시간 실측)은 하드웨어/영상/측정이
+> 필요하여 시연영상 타임스탬프 및 성능 측정 로그로 입증합니다(요구사항 명세서 참조).

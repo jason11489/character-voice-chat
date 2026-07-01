@@ -1,4 +1,4 @@
-numpy<2
-git+https://github.com/myshell-ai/MeloTTS.git
-python-mecab-ko
+numpy==1.26.4
+git+https://github.com/myshell-ai/MeloTTS.git@209145371cff8fc3bd60d7be902ea69cbdb7965a
+python-mecab-ko==1.3.7
 wavmark==0.0.3
