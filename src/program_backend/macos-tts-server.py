@@ -185,6 +185,11 @@ def load_openvoice():
     dev = "cpu"  # 변환기는 작아서 CPU 로 충분하고 MPS 호환 이슈를 피한다
     conv = ToneColorConverter(os.path.join(ckpt, "converter", "config.json"), device=dev)
     conv.load_ckpt(os.path.join(ckpt, "converter", "checkpoint.pth"))
+    # 워터마크 비활성화: convert() 는 조각마다 add_watermark() 로 wavmark 신경망을
+    # 초당 1회 encode 해 들리지 않는 워터마크를 심는다(음색과 무관한 순수 CPU 낭비).
+    # watermark_model=None 이면 add_watermark 가 즉시 return → 조각당 합성이 빨라진다.
+    # (생성자 enable_watermark 인자는 이 벤더 버전이 super로 그대로 넘겨 TypeError 라 못 씀)
+    conv.watermark_model = None
     OV_SRC_SE = torch.load(
         os.path.join(ckpt, "base_speakers", "ses", "kr.pth"), map_location=dev
     )

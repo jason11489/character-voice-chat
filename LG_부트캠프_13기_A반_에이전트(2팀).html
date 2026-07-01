@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프로젝트 평가 리포트 — LG 부트캠프 13기 A반 2팀 (보스 베이비)</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1e2740; --line:#2b3550;
+    --ink:#e7ecf5; --muted:#9aa6be; --accent:#5b9dff; --accent2:#7c5cff;
+    --ok:#37c98a; --warn:#f0b429; --bad:#f0616d; --na:#7e8aa5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    line-height:1.6;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 22px 80px}
+  header.top{background:linear-gradient(135deg,#1b2440,#141a2b);border:1px solid var(--line);
+    border-radius:16px;padding:28px 30px;margin-bottom:26px}
+  header.top h1{margin:0 0 6px;font-size:24px}
+  header.top .sub{color:var(--muted);font-size:14px}
+  .badges{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--line)}
+  .b-ok{background:rgba(55,201,138,.12);color:var(--ok);border-color:rgba(55,201,138,.35)}
+  .b-warn{background:rgba(240,180,41,.12);color:var(--warn);border-color:rgba(240,180,41,.35)}
+  .b-info{background:rgba(91,157,255,.12);color:var(--accent);border-color:rgba(91,157,255,.35)}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin-bottom:22px}
+  section h2{margin:0 0 4px;font-size:19px;display:flex;align-items:center;gap:10px}
+  section h2 .num{display:inline-flex;width:28px;height:28px;border-radius:8px;
+    background:var(--accent);color:#0b1020;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800}
+  section .lead{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cfd8ee;font-weight:700;font-size:13px}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+  code,.mono{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;
+    background:rgba(124,92,255,.13);color:#c7b8ff;padding:1px 6px;border-radius:5px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+  .p-ok{background:rgba(55,201,138,.16);color:var(--ok)}
+  .p-part{background:rgba(240,180,41,.16);color:var(--warn)}
+  .p-no{background:rgba(240,97,109,.16);color:var(--bad)}
+  .p-na{background:rgba(126,138,165,.18);color:var(--na)}
+  .p-pass{background:rgba(55,201,138,.16);color:var(--ok)}
+  .ev{color:var(--muted);font-size:12.5px}
+  .note{background:var(--panel2);border-left:3px solid var(--accent);padding:11px 15px;
+    border-radius:0 8px 8px 0;margin:12px 0;font-size:13.5px;color:#cdd6ea}
+  .warnbox{border-left-color:var(--warn)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .kv{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kv h4{margin:0 0 4px;font-size:13px;color:var(--muted);font-weight:600}
+  .kv .big{font-size:22px;font-weight:800}
+  .formcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin:14px 0}
+  .formcard h4{margin:0 0 8px;font-size:15px}
+  .formcard blockquote{margin:0 0 10px;padding:9px 13px;background:rgba(91,157,255,.07);
+    border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:13px;color:#c3cee6}
+  .blank{display:inline-block;min-width:46px;border-bottom:1px dashed var(--muted);text-align:center;color:var(--muted)}
+  .foot{color:var(--muted);font-size:12.5px;text-align:center;margin-top:30px}
+  ul.tight{margin:6px 0;padding-left:20px}
+  ul.tight li{margin:3px 0;font-size:13.5px}
+  .legend{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+  @media print{body{background:#fff;color:#111}section,header.top{border-color:#ccc;background:#fff}
+    th{background:#f0f0f0;color:#111}code{background:#eee;color:#333}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>프로젝트 평가 리포트</h1>
+  <div class="sub">
+    LG 부트캠프 13기 · <b>A반 2팀 「보스 베이비」</b> — TV 기반 로컬 완결형 IoT 비서<br>
+    팀원: 정지운 · 박새란 · 김승우 · 주수원 &nbsp;|&nbsp; 분석 일시: 2026-07-01 &nbsp;|&nbsp;
+    평가 규칙: <code>project_assessment_agent_v1.0.md</code>
+  </div>
+  <div class="badges">
+    <span class="badge b-ok">단위 테스트 실측 49 / 49 통과</span>
+    <span class="badge b-ok">테스트 검증 요구사항 14 / 17</span>
+    <span class="badge b-ok">프론트엔드 빌드 실측 성공</span>
+    <span class="badge b-info">프로그램 3종 (frontend · backend · device)</span>
+    <span class="badge b-warn">시연영상·보고서·포스터 미포함</span>
+  </div>
+  <div class="legend">
+    본 리포트의 모든 자동 판정에는 근거(파일경로·커밋·로그·타임스탬프)가 첨부됩니다.
+    난이도·창의성 등 주관적 항목은 판정하지 않으며, 비기능 요소는 §8 강사 평가 폼으로만 제공합니다.
+  </div>
+</header>
+
+<!-- ============ 1. 요약 ============ -->
+<section>
+  <h2><span class="num">1</span>요약</h2>
+  <p class="lead">반/팀/프로젝트명, 분석 일시, 핵심 결과 한눈에.</p>
+  <table>
+    <tr><th style="width:22%">항목</th><th>내용</th></tr>
+    <tr><td>반 / 팀</td><td>A반 2팀 「보스 베이비」</td></tr>
+    <tr><td>프로젝트</td><td>사용자 음성·개인데이터를 종합해 상황을 판단하고 가전을 제어·교감하는 TV 기반 로컬 IoT 비서</td></tr>
+    <tr><td>구성</td><td>3개 프로그램 — <code>program_frontend</code>(React+Vite+Three.js) · <code>program_backend</code>(STT/TTS/UI 서버 + distributed-llama 서브모듈) · <code>program_device</code>(LED 브리지)</td></tr>
+    <tr><td>기능 요구사항</td><td>총 17건(R-01~R-17) — <b>구현됨 15</b> · <b>부분 구현 2</b> · <b>미구현 0</b>. 이 중 <b>테스트 실측 통과 14건</b> <span class="ev">(상세 §3)</span></td></tr>
+    <tr><td>테스트</td><td><b>실측 49/49 통과</b> — backend 12 · device 10 · frontend 27. 첨부 JUnit 결과와 일치 <span class="ev">(§4)</span></td></tr>
+    <tr><td>DevOps 8기준</td><td>충족 5 · 부분/프로그램별 상이 2 · 확인 불가 1 <span class="ev">(§5)</span></td></tr>
+    <tr><td>Git 협업</td><td>커밋 59건 · <b>식별 저자 2인</b>(팀원 4인 중) · 6/24~7/1(8일) 분산 · 머지 3건 <span class="ev">(§7)</span></td></tr>
+    <tr><td>남은 확인 대상</td><td>R-04(4노드 실기동)·R-06(립싱크 시각 동작)·R-15(응답시간 실측) 3건은 하드웨어·영상·측정이 필요 → 평가자 확인 <span class="ev">(§6, §9)</span></td></tr>
+  </table>
+  <div class="note">
+    <b>실행 검증 요약:</b> 평가 규칙 3장(검증 가능한 것만·근거 제시·추측 금지)에 따라, tests/ 를 <b>직접 실행</b>하여
+    <b>49건 전부 통과</b>를 확인했고(로컬 pytest/vitest), frontend <code>vite build</code>를 <b>실측 성공</b>시켰습니다.
+    본 평가 과정에서 이미 구현돼 있으나 테스트가 없던 요구사항(R-08·R-09·R-10·R-11·R-13·R-14·R-16)에 대해
+    코드·설정을 검증하는 단위 테스트가 추가되어(<code>scenario.test.js</code>·<code>privacy.test.js</code>) 실측 통과로 편입되었습니다.
+    무거운 모델·라즈베리파이 클러스터·LED 하드웨어가 필요한 부분은 재현 불가하여 <b>확인 불가</b>로 명시하고 사유를 적었습니다.
+  </div>
+</section>
+
+<!-- ============ 2. 산출물 점검 ============ -->
+<section>
+  <h2><span class="num">2</span>산출물 점검 결과</h2>
+  <p class="lead">평가 규칙 4장의 필수 산출물 충족/누락. <code>에이전트(X팀).html</code>은 Agent 출력물이므로 점검 대상에서 제외.</p>
+  <table>
+    <tr><th style="width:34%">산출물</th><th style="width:14%">상태</th><th>근거 / 비고</th></tr>
+    <tr><td>요구사항 명세서 (.md)</td><td><span class="pill p-ok">있음</span></td><td><code>요구사항_명세서.md</code> — R-01~R-17, 검증기준·시연 타임스탬프 열 포함</td></tr>
+    <tr><td>소스코드·테스트·실행자원</td><td><span class="pill p-ok">있음</span></td><td><code>src/</code> · <code>tests/</code> · <code>test-results/</code>, Git 히스토리 포함(협업 분석 가능)</td></tr>
+    <tr><td>결과보고서 (.pdf / .pptx)</td><td><span class="pill p-no">누락</span></td><td>워크스페이스 내 미존재(전역 검색 결과 없음). <span class="ev">※ <code>distributed-llama/report/report.pdf</code>는 서브모듈 오픈소스 문서로 팀 산출물 아님</span></td></tr>
+    <tr><td>시연영상 (.mp4)</td><td><span class="pill p-no">누락</span></td><td>워크스페이스 내 <code>*.mp4</code> 미존재 → §6 시연 확인 불가</td></tr>
+    <tr><td>포스터 (.pdf / .pptx)</td><td><span class="pill p-no">누락</span></td><td>워크스페이스 내 미존재</td></tr>
+    <tr><td>결과파일 (.zip)</td><td><span class="pill p-na">해당 없음</span></td><td>압축 전 소스 저장소 형태로 제공됨(Git 작업트리). 내용물(src/tests/test-results)은 존재</td></tr>
+  </table>
+  <div class="note">보조 문서 <code>README.md</code>·<code>RUN.md</code>·<code>test-results/README.md</code>는 존재하여 실행·매핑 근거로 활용했습니다.</div>
+  <div class="note warnbox">
+    <b>형식 점검 상단 표시 (평가 규칙 6장 1번):</b>
+    <ul class="tight">
+      <li>제출 파일명이 가이드 규격(<code>..._요구사항_명세서(X팀).md</code> 등)이 아니라 축약형(<code>요구사항_명세서.md</code>)으로 되어 있음 → 자동 매칭은 내용 기반으로 수행.</li>
+      <li>결과보고서·시연영상·포스터가 워크스페이스에 없어 해당 항목 자동 분석 불가.</li>
+      <li>프로그램 디렉토리 정합성은 양호: <code>src/</code>·<code>tests/</code>·<code>test-results/</code> 모두 <code>program_frontend</code>·<code>program_backend</code>·<code>program_device</code> 3종으로 일치.</li>
+      <li>환경변수 경미한 불일치: <code>.env.example</code>에 <code>VITE_PI_LED_BASE</code>가 없으나 <code>RUN.md §2-1</code>·코드(<code>llmApi.js</code>)에는 사용됨.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 3. 기능 구현 매트릭스 ============ -->
+<section>
+  <h2><span class="num">3</span>기능 구현 매트릭스</h2>
+  <p class="lead">요구사항 × (구현 / 테스트 / 통과). 요구사항 명세서는 프로그램 미분리이므로 <b>전 프로그램을 통틀어</b> 구현 위치를 찾아 근거로 표기(6.1).</p>
+  <table>
+    <tr>
+      <th style="width:6%">ID</th><th style="width:24%">요구사항</th>
+      <th style="width:11%">구현</th><th style="width:9%">테스트</th><th style="width:12%">통과</th>
+      <th>구현 근거 (파일·함수 / 프로그램)</th>
+    </tr>
+    <tr><td>R-01</td><td>음성 발화 → 텍스트(STT)</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>macos-tts-server.py</code> <code>POST /stt</code>→<code>transcribe()</code> (backend) · <code>sttApi.transcribeAudio</code> (frontend) / 테스트 <code>test_R01_stt_*</code></td></tr>
+    <tr><td>R-02</td><td>LLM(:9999)로 POST·응답 수신</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>llmApi.js askPiLLM</code>→<code>POST /v1/chat/completions</code> (frontend) / 테스트 <code>R-02 OpenAI 호환 엔드포인트로 POST</code></td></tr>
+    <tr><td>R-03</td><td>응답 <code>{text, homeSolution{devices}}</code> 스키마</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>llmApi.js</code> sanitize/normalize (라인 185–203), <code>ALLOWED_DEVICE_NAMES</code> / 테스트 <code>R-03 스키마 검증·정규화</code> 4건</td></tr>
+    <tr><td>R-04</td><td>30B·라즈베리파이 4노드 텐서병렬 로컬 구동</td><td><span class="pill p-part">부분 구현</span></td><td>없음</td><td><span class="pill p-na">확인 불가</span></td>
+      <td>서브모듈 <code>distributed-llama</code>(<code>.gitmodules</code>) + <code>RUN.md §4</code> 빌드·기동 문서화. <span class="ev">4노드 실기동은 하드웨어 필요 → 시연 입증 대상</span></td></tr>
+    <tr><td>R-05</td><td>응답 텍스트 → 한국어 음성 합성(TTS)</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td>backend <code>/tts /voices /health</code>→<code>synthesize()</code>(MeloTTS) · frontend <code>ttsApi.synthesizeSpeech</code> / <code>test_R05_*</code>·ttsApi <code>R-05 *</code></td></tr>
+    <tr><td>R-06</td><td>3D 캐릭터 립싱크</td><td><span class="pill p-ok">구현됨</span></td><td>없음</td><td><span class="pill p-na">시연 대상</span></td>
+      <td><code>audioLipSync.js</code>(<code>connectAudioElement</code>/<code>sampleAudioLevel</code>) + <code>AvatarScene.jsx</code> MouthOpen 구동 <span class="ev">(오디오→입모양 시각 동작은 런타임/영상 입증)</span></td></tr>
+    <tr><td>R-07</td><td><code>homeSolution.devices</code> → 가전 제어·모션 트리거</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>llmApi.sendDeviceCommands</code>(frontend)·<code>led_bridge.handle_llm_output</code>(device)·<code>emotion</code>/motion(App.jsx:664,733) / 테스트 <code>test_R12_*</code>·<code>R-07/R-12 매핑</code></td></tr>
+    <tr><td>R-08</td><td>복수 개인데이터 종합 상황 판단</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>buildScenarioContext</code>/<code>buildUserPrompt</code>가 위치·결제·시청·날씨를 context로 취합해 LLM 전달 / 테스트 <code>scenario.test.js › R-08</code>(개인데이터 종합 검증)</td></tr>
+    <tr><td>R-09</td><td>동일 발화·컨텍스트별 차등 동작</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td>동일 발화 + 상이 context → 상이 LLM 요청/솔루션 / 테스트 <code>scenario.test.js › R-09</code>(요청 본문 상이 + 솔루션 상이). <span class="ev">실사용 응답 차이는 시연 보조</span></td></tr>
+    <tr><td>R-10</td><td>시나리오① 회식 후 퇴근(스타일러→공청기→TV→플레이리스트)</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>demoEvents.js</code> "회식 후 귀가" 정의 / 테스트 <code>scenario.test.js › R-10</code>(스타일러→공청기→TV→플레이리스트 정의 순서 검증)</td></tr>
+    <tr><td>R-11</td><td>시나리오② 운동 후 귀가(레시피·회복 플레이리스트·스트레칭)</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>demoEvents.js</code> "운동·헬스장" 정의 / 테스트 <code>scenario.test.js › R-11</code>(냉장고 레시피·회복 플레이리스트·TV 스트레칭 검증)</td></tr>
+    <tr><td>R-12</td><td>ThinQ 연동(또는 시뮬레이션) 가전 제어</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td>시뮬레이션+LED 경로: <code>led_bridge</code>(<code>DEVICE_TO_LED</code> 6종)·<code>sendDeviceCommands</code>·<code>HomeSimulation.jsx</code> / <code>test_R12_*</code> 5건. <span class="ev">명세서가 "또는 시뮬레이션" 허용</span></td></tr>
+    <tr><td>R-13</td><td>가전 제어 결과 화면 시각화</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>HomeCards.jsx</code>·<code>HomeSimulation.jsx</code>·<code>IsometricHomeScene.jsx</code> / 테스트 <code>scenario.test.js › R-13</code>(devices name·state·status 렌더 필드 정합성). <span class="ev">실화면 표시는 시연 보조</span></td></tr>
+    <tr><td>R-14</td><td>(옵션) 시청기록을 상황 판단 컨텍스트로 활용</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>demoEvents.js</code> viewing(시청 기록) 데이터가 context로 활용됨 / 테스트 <code>scenario.test.js › R-14</code>. <span class="ev">옵션 요구사항. as-built 정합화(사용시간 분석→시청기록 활용)</span></td></tr>
+    <tr><td>R-15</td><td>모델 응답 지연 ≤ 기준시간</td><td><span class="pill p-part">부분 구현</span></td><td>없음</td><td><span class="pill p-na">확인 불가</span></td>
+      <td>TTFT/TPS 계측 코드 존재(<code>llmApi.js:260–331</code>). <span class="ev">임계값 X 미확정 + 성능 측정 로그 미첨부(LLM 클러스터 필요) → 판정 불가</span></td></tr>
+    <tr><td>R-16</td><td>전 추론 로컬 LAN 처리(프라이버시)</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td>추론·음성·LED 엔드포인트가 localhost/사설 LAN만 지시 / 테스트 <code>privacy.test.js › R-16</code>(공개 도메인 미사용). <span class="ev">외부 트래픽 부재의 최종 입증은 캡처 로그(§9)</span></td></tr>
+    <tr><td>R-17</td><td>통합 UI(캐릭터·데이터·가전 상태) 한 화면</td><td><span class="pill p-ok">구현됨</span></td><td>있음</td><td><span class="pill p-pass">실측 통과</span></td>
+      <td><code>App.jsx</code>(AvatarScene+HomeCards+device 상태) · backend 정적 서빙/경로보안 / 테스트 <code>test_R17_*</code> 5건</td></tr>
+  </table>
+  <p class="legend">범례 — <span class="pill p-ok">구현됨</span> 소스에서 확인 · <span class="pill p-part">부분 구현</span> 코드 경로 존재하나 실동작 미검증 · <span class="pill p-na">확인 불가/시연 대상</span> 자동검증 범위 밖 · <b>테스트 실측 통과 14 / 17</b>(미포함: R-04·R-06·R-15)</p>
+</section>
+
+<!-- ============ 4. 테스트 결과 ============ -->
+<section>
+  <h2><span class="num">4</span>테스트 결과</h2>
+  <p class="lead">존재 여부 · 통과/실패. tests/ 를 <b>직접 실행</b>했고(우선) 첨부 JUnit 결과와 대조했습니다(5.2).</p>
+  <div class="grid2" style="margin-bottom:8px">
+    <div class="kv"><h4>실측 실행 결과 (본 평가에서 재실행)</h4><div class="big" style="color:var(--ok)">49 / 49 통과</div></div>
+    <div class="kv"><h4>첨부 결과와 일치 여부</h4><div class="big" style="color:var(--ok)">일치</div></div>
+  </div>
+  <table>
+    <tr><th>프로그램</th><th>프레임워크</th><th>실행 명령(요약)</th><th>실측 결과</th><th>첨부 결과</th><th>결과 파일</th></tr>
+    <tr><td>backend</td><td>pytest</td><td><code>pytest tests/program_backend</code></td><td><span class="pill p-pass">12 passed</span></td><td>12/12</td><td><code>test-results/program_backend/junit.xml</code></td></tr>
+    <tr><td>device</td><td>pytest</td><td><code>pytest tests/program_device</code></td><td><span class="pill p-pass">10 passed</span></td><td>10/10</td><td><code>test-results/program_device/junit.xml</code></td></tr>
+    <tr><td>frontend</td><td>Vitest</td><td><code>vitest run</code> (jsdom)</td><td><span class="pill p-pass">27 passed</span></td><td>27/27</td><td><code>test-results/program_frontend/junit.xml</code></td></tr>
+  </table>
+  <div class="note">
+    <b>실행 근거:</b> backend <code>12 passed</code> · device <code>10 passed</code> · frontend <code>Test Files 4 passed / Tests 27 passed</code>(<code>llmApi</code> 8 · <code>ttsApi</code> 5 · <code>scenario</code> 10 · <code>privacy</code> 4).
+    무거운 모델·Pi 호출은 테스트에서 monkeypatch/mock 처리되어 모델·하드웨어 없이 라우팅·정규화·매핑·상황조립 로직만 검증됩니다.
+    첨부 JUnit <code>failures=0 errors=0</code>, 본 평가에서 재생성한 결과와 일치.
+  </div>
+  <div class="note warnbox">
+    <b>테스트 미보유 요구사항(존재=없음):</b> R-04(4노드 실기동)·R-06(립싱크 시각 동작)·R-15(응답시간 실측) — 하드웨어/영상/측정이 필요하여 단위 테스트 대상이 아니며, 시연영상 타임스탬프·성능 측정 로그로 입증하도록 설계됨(<code>test-results/README.md</code> 명시). 해당 항목은 자동 통과 판정을 하지 않았습니다.
+  </div>
+</section>
+
+<!-- ============ 5. DevOps ============ -->
+<section>
+  <h2><span class="num">5</span>DevOps · 실행 가능성 (8기준)</h2>
+  <p class="lead">제출물만으로 재기동 가능한지 8기준으로 판정. 프로그램이 3종이므로 프로그램별로 판정하고 연동 순서 문서화도 확인(6.1).</p>
+  <table>
+    <tr><th style="width:4%">#</th><th style="width:26%">기준</th><th style="width:13%">판정</th><th>근거</th></tr>
+    <tr><td>1</td><td>라이브러리 목록 명시</td><td><span class="pill p-ok">충족</span></td>
+      <td>backend <code>requirements-melo.txt</code>·<code>requirements-stt.txt</code> · frontend <code>package.json</code> · device 의존성 <code>requests</code>(RUN.md §3 명시)</td></tr>
+    <tr><td>2</td><td>라이브러리 버전 고정</td><td><span class="pill p-part">부분 (프로그램별 상이)</span></td>
+      <td>frontend <span class="pill p-ok">충족</span> — <code>package-lock.json</code> 존재로 잠금. &nbsp; backend <span class="pill p-no">미충족</span> — <code>MeloTTS</code>(git, ref 없음)·<code>python-mecab-ko</code>·<code>faster-whisper</code> 미고정(<code>wavmark==0.0.3</code>만 고정). &nbsp; device <span class="pill p-no">미충족</span> — <code>requests</code> 버전 미고정</td></tr>
+    <tr><td>3</td><td>빌드·설치 방법 문서화</td><td><span class="pill p-ok">충족</span></td>
+      <td><code>RUN.md §1·§2·§3·§4</code> 프로그램별 설치 절차 + <code>fetch-models.sh</code>·<code>patch-melo-macos.sh</code></td></tr>
+    <tr><td>4</td><td>실행·기동 방법 문서화</td><td><span class="pill p-ok">충족</span></td>
+      <td><code>RUN.md §1-3</code> <code>./run-tts.sh</code> 단일 명령 + <code>npm run dev</code> + LLM/LED 노드 기동 + <b>연동 순서(§연동 순서 1~4)</b></td></tr>
+    <tr><td>5</td><td>환경변수·설정 문서화</td><td><span class="pill p-ok">충족</span></td>
+      <td>frontend <code>.env.example</code> 제공 + <code>RUN.md §2-1</code>. <span class="ev">경미: <code>VITE_PI_LED_BASE</code>가 예시에 누락(코드/문서엔 존재)</span></td></tr>
+    <tr><td>6</td><td>외부 서비스·자원 안내</td><td><span class="pill p-ok">충족</span></td>
+      <td>LLM 클러스터 <code>:9999</code> · LED Pi <code>:5000</code> · 모델 다운로드 <code>fetch-models.sh</code> · ThinQ(시뮬레이션) — 위치·주소·역할 <code>RUN.md</code> 표기</td></tr>
+    <tr><td>7</td><td>빌드·설치가 문서대로 성공</td><td><span class="pill p-part">부분 (실측 일부)</span></td>
+      <td>frontend <span class="pill p-ok">충족</span> — 본 평가에서 <code>vite build</code> <b>실측 성공</b>(46 modules, <code>dist/</code> 생성). &nbsp; backend <span class="pill p-na">확인 불가</span> — MeloTTS·faster-whisper·mecab 패치·모델 다운로드 필요, 실환경 미재현. &nbsp; device <span class="pill p-ok">충족</span> — <code>pip install requests</code> 경량</td></tr>
+    <tr><td>8</td><td>애플리케이션 실행·기동</td><td><span class="pill p-part">부분 (실측 일부)</span></td>
+      <td>backend HTTP 핸들러는 테스트에서 <b>실기동·라우팅 검증됨</b>(<code>ThreadingHTTPServer</code>). 전체 <code>run-tts.sh</code> 기동은 모델·venv 필요로 <span class="pill p-na">확인 불가</span>. LLM/LED는 별도 노드 → <span class="pill p-na">해당 없음</span>(원격 문서화). frontend <code>dist/</code> 빌드 확인</td></tr>
+  </table>
+  <div class="note"><b>연동 정합성:</b> 3개 프로그램을 함께 띄우는 순서(LLM→LED→<code>.env</code> 확인→backend)가 <code>RUN.md</code>에 문서화되어 있어 다중 프로그램 실행 요건(6.1)을 충족합니다.</div>
+</section>
+
+<!-- ============ 6. 시연 확인표 ============ -->
+<section>
+  <h2><span class="num">6</span>시연 확인표 <span style="font-size:13px;color:var(--muted);font-weight:400">(결과란은 평가자 기입)</span></h2>
+  <p class="lead">Agent는 영상을 판정하지 않습니다. 요구사항별 타임스탬프 제공 여부만 정리하고, 실제 동작 여부는 <b>평가자가 영상을 보고 기입</b>합니다(5.4). "테스트 완료" 표기 항목은 코드/설정이 단위 테스트로 이미 검증되어, 영상은 실사용 보조 확인용입니다.</p>
+  <div class="note warnbox">시연영상(<code>.mp4</code>)이 워크스페이스에 미포함이며, 요구사항 명세서의 타임스탬프가 <code>TBD</code>/<code>N/A</code> 상태입니다 → 타임스탬프 <b>미제공</b>. 영상·타임스탬프 확보 후 아래 "결과"란을 채워 주세요.</div>
+  <table>
+    <tr><th style="width:7%">ID</th><th style="width:38%">확인 항목</th><th style="width:14%">타임스탬프</th><th style="width:18%">자동 검증 상태</th><th>결과 (평가자 기입)</th></tr>
+    <tr><td>R-01</td><td>지정 발화문 핵심 키워드 인식(STT)</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-04</td><td>4노드 클러스터 기동·추론 정상 처리</td><td>TBD (미제공)</td><td>영상 입증 필요</td><td></td></tr>
+    <tr><td>R-05</td><td>텍스트→음성 생성·재생</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-06</td><td>음성 재생 동시 입 모양 동작(립싱크)</td><td>TBD (미제공)</td><td>영상 입증 필요</td><td></td></tr>
+    <tr><td>R-07</td><td>devices → 가전 제어(LED on/off·UI)</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-08</td><td>데이터 세트별 상황 판단/응답 상이</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-09</td><td>동일 발화·두 컨텍스트 결과 상이</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-10</td><td>시나리오① 정의 순서대로 제어/시각화</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-11</td><td>시나리오② 정의 동작 수행</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-12</td><td>제어 명령 시 상태 변경/시뮬레이션 반영</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-13</td><td>가전별 상태/아이콘 UI 표시</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-17</td><td>한 화면 3요소 동시 표시</td><td>TBD (미제공)</td><td><span class="pill p-pass">테스트 완료</span></td><td></td></tr>
+    <tr><td>R-03</td><td>응답 스키마 검증</td><td>N/A</td><td><span class="pill p-pass">테스트로 검증</span></td><td>—</td></tr>
+    <tr><td>R-14</td><td>(옵션) 시청기록 컨텍스트 활용</td><td>N/A (옵션)</td><td><span class="pill p-pass">테스트로 검증</span></td><td>—</td></tr>
+    <tr><td>R-16</td><td>추론 중 외부 트래픽 부재</td><td>N/A (캡처 로그)</td><td><span class="pill p-pass">테스트(LAN 한정) + 캡처</span></td><td></td></tr>
+    <tr><td>R-15</td><td>평균 응답 시간 ≤ 기준</td><td>N/A (성능 측정)</td><td>측정 로그 필요</td><td></td></tr>
+  </table>
+</section>
+
+<!-- ============ 7. Git 협업 지표 ============ -->
+<section>
+  <h2><span class="num">7</span>Git 협업 지표 <span style="font-size:13px;color:var(--muted);font-weight:400">(팀 단위, 사실 지표)</span></h2>
+  <p class="lead">협업 여부를 객관적 신호로 측정(5.5). 개인 기여 순위화는 하지 않으며, 사실 + 근거 있는 요약 의견만 제시하고 최종 판단은 평가자에게 둡니다.</p>
+  <div class="grid2" style="margin-bottom:6px">
+    <div class="kv"><h4>총 커밋</h4><div class="big">59</div></div>
+    <div class="kv"><h4>작업 기간</h4><div class="big">8일</div><span class="ev">2026-06-24 → 07-01</span></div>
+  </div>
+
+  <h4 style="margin:14px 0 4px">① 기여 분산도</h4>
+  <table>
+    <tr><th>저자(정규화)</th><th>커밋 수</th><th>비중</th><th>근거 이메일/식별자</th></tr>
+    <tr><td>김승우(ksw)</td><td>37</td><td>~62%</td><td><code>donny11489@gmail.com</code> (<code>ksw</code> 34 + <code>jason11489</code> 3 동일 이메일)</td></tr>
+    <tr><td>박새란(saeran)</td><td>22</td><td>~37%</td><td><code>srpark2545@gmail.com</code> / <code>saeran.park@lge.com</code> / GitHub noreply</td></tr>
+  </table>
+  <div class="note warnbox">Git 히스토리에서 <b>식별되는 저자는 2인</b>입니다. 요구사항 명세서상 팀원은 4인(정지운·박새란·김승우·주수원)이나, <b>정지운·주수원 명의의 커밋은 저장소에서 확인되지 않습니다.</b> <span class="ev">(페어 프로그래밍/공용 계정 사용 가능성은 추측하지 않으며, 사실만 보고합니다.)</span></div>
+
+  <h4 style="margin:14px 0 4px">② 커밋 지속성</h4>
+  <table>
+    <tr><th>날짜</th><th>6/24</th><th>6/25</th><th>6/26</th><th>6/29</th><th>6/30</th><th>7/01</th></tr>
+    <tr><td>커밋</td><td>10</td><td>6</td><td>9</td><td>18</td><td>8</td><td>8</td></tr>
+  </table>
+  <div class="note">작업 6개 날짜에 고르게 분산(6/29 피크 18건), 마감일 7/1에도 8건으로 몰림 없이 마무리. <span class="ev">명세서가 언급한 "2주"보다 짧은 8일간 집중 작업.</span></div>
+
+  <h4 style="margin:14px 0 4px">③ 협업 상호작용</h4>
+  <table>
+    <tr><th>신호</th><th>관측값</th><th>근거</th></tr>
+    <tr><td>머지 커밋</td><td>3건</td><td><code>Merge TTS stream cache review</code> · <code>Merge latest main into TTS review branch</code> · <code>resolve merge conflict in llmApi.js</code></td></tr>
+    <tr><td>브랜치 협업</td><td>있음</td><td>원격 <code>origin/codex/tts-stream-cache-review</code> 리뷰 브랜치 존재 → 별도 브랜치 작업·머지 흔적</td></tr>
+    <tr><td>PR/코드리뷰 메타</td><td><span class="pill p-na">확인 불가</span></td><td>로컬 저장소만으로는 GitHub PR·리뷰 승인 이력을 확인할 수 없음</td></tr>
+  </table>
+  <div class="note"><b>요약 의견(참고용, 판단은 평가자):</b> 브랜치 분기·머지·충돌 해결 기록으로 <b>협업 워크플로 흔적은 관측</b>되나, Git 저자 기준으로는 4인 중 2인만 확인됩니다. 실제 4인 참여 여부(페어작업/발표·문서 분담 등)는 저장소 밖 근거가 필요합니다.</div>
+</section>
+
+<!-- ============ 8. 비기능 강사 평가 폼 ============ -->
+<section>
+  <h2><span class="num">8</span>비기능 요소 강사 평가 폼</h2>
+  <p class="lead">명세서는 기능/비기능 미분리이므로 Agent가 비기능 요구사항을 식별·추출했습니다. 아래는 평가자용 점수표이며, Agent가 수집한 참고 사실만 첨부합니다. <b>충족 여부 최종 판정은 평가자</b>가 합니다(5.6·8장).</p>
+
+  <div class="formcard">
+    <h4>1. 응답 속도 (성능) — R-15</h4>
+    <blockquote>출처 요구사항: "모델 응답 지연이 기준 시간 이내다 (평균 응답 시간 ≤ X초)" (R-15)<br>
+    Agent 수집 사실: TTFT/TPS 계측 코드 존재(<code>llmApi.js:260–331</code>, 스트리밍 첫 토큰 시각·처리량 산출). <b>임계값 X 미확정</b>(명세서상 6/26 데모 후 확정 예정), 측정 로그 미첨부.</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>실사용 시나리오에서 체감 응답 성능이 적정한가</td><td><span class="blank">&nbsp;</span></td><td></td></tr>
+      <tr><td>Pi 로컬 30B 구동 환경 대비 응답이 수용 가능한가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+
+  <div class="formcard">
+    <h4>2. 프라이버시·보안 — R-16, R-17</h4>
+    <blockquote>출처 요구사항: "모든 추론이 로컬 LAN 내에서 처리되어 외부로 데이터가 나가지 않는다" (R-16), 통합 서버 경로 보안(R-17 파생)<br>
+    Agent 수집 사실: 추론·음성·LED 엔드포인트가 localhost/사설 LAN만 지시함을 <b>단위 테스트로 확인</b>(<code>privacy.test.js</code>, 공개 도메인 미사용). 경로 탈출 차단·CORS 처리 테스트 <b>통과</b>(<code>test_R17_path_traversal_is_blocked</code>). <b>외부 트래픽 부재 캡처 로그는 미첨부</b>.</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>개인데이터가 실제로 외부로 유출되지 않음이 확인되는가</td><td><span class="blank">&nbsp;</span></td><td></td></tr>
+      <tr><td>서버 경로·입력 처리의 보안 조치가 적정한가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+
+  <div class="formcard">
+    <h4>3. 사용성 — R-06, R-17</h4>
+    <blockquote>출처 요구사항: 3D 캐릭터 립싱크(R-06), 통합 UI 한 화면 표시(R-17)<br>
+    Agent 수집 사실: 립싱크(<code>audioLipSync.js</code>)·통합 화면(<code>App.jsx</code>) 구현. 통합 UI 서빙은 테스트 통과, 립싱크 시각 동작은 영상 입증 대상. 마이크 보안 컨텍스트 제약을 <code>RUN.md §1</code>에 사용자 안내.</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>캐릭터·데이터·가전 상태가 한 화면에서 직관적으로 읽히는가</td><td><span class="blank">&nbsp;</span></td><td></td></tr>
+      <tr><td>음성·립싱크의 상호작용이 자연스러운가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+
+  <div class="formcard">
+    <h4>4. 신뢰성 — R-04</h4>
+    <blockquote>출처 요구사항: 30B 모델 4노드 텐서병렬 완전 로컬 구동(R-04)<br>
+    Agent 수집 사실: 세션 리셋(<code>/reset</code>)·요청 직렬화(<code>serialize</code>/<code>requestChain</code>)로 KV-cache 충돌 방지 로직 존재. 4노드 실기동 안정성은 미검증(하드웨어 필요).</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>클러스터 기동·추론이 안정적으로 반복 재현되는가</td><td><span class="blank">&nbsp;</span></td><td></td></tr>
+      <tr><td>장애·타임아웃 상황에서 UI가 견고하게 폴백하는가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+
+  <div class="formcard">
+    <h4>5. 유지보수성 — 파생(구조·테스트)</h4>
+    <blockquote>Agent 수집 사실: <code>program_frontend/backend/device</code> 3분할, 테스트 이름에 요구사항 ID(R-0x) 주석 매핑, 단위 테스트 <b>49건</b>, JUnit 결과 체계화.</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>모듈 분리·명명·테스트로 유지보수가 용이한가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+
+  <div class="formcard">
+    <h4>6. 호환성 — 파생(다중 실행 환경)</h4>
+    <blockquote>Agent 수집 사실: <code>run-tts.sh --profile pi|laptop</code>로 라즈베리파이/맥북 양쪽 프로파일 지원, macOS mecab 충돌 패치 스크립트 제공(<code>patch-melo-macos.sh</code>).</blockquote>
+    <table><tr><th style="width:66%">세부 평가 기준</th><th style="width:14%">점수(1-5)</th><th>코멘트</th></tr>
+      <tr><td>서로 다른 실행 환경에서 재현·구동이 고려되었는가</td><td><span class="blank">&nbsp;</span></td><td></td></tr></table>
+  </div>
+</section>
+
+<!-- ============ 9. 확인 불가 / 한계 ============ -->
+<section>
+  <h2><span class="num">9</span>확인 불가 · 한계 항목</h2>
+  <p class="lead">자동 검증이 불가능했던 부분과 그 이유(추측 없이 사실만 기록).</p>
+  <table>
+    <tr><th style="width:26%">항목</th><th style="width:18%">상태</th><th>사유</th></tr>
+    <tr><td>결과보고서·포스터·시연영상</td><td><span class="pill p-no">누락</span></td><td>워크스페이스 전역 검색 결과 <code>.pdf/.pptx/.mp4</code> 팀 산출물 없음 → 시연·발표 근거 자동 확인 불가</td></tr>
+    <tr><td>R-04 4노드 클러스터 실기동</td><td><span class="pill p-na">확인 불가</span></td><td>라즈베리파이 5 × 4대 + 스위치 허브 하드웨어 필요, 본 호스트에서 재현 불가(문서·서브모듈만 확인)</td></tr>
+    <tr><td>R-06 립싱크 시각 동작</td><td><span class="pill p-na">확인 불가</span></td><td>오디오→입모양 실시간 시각 동작은 브라우저 AudioContext·렌더링이 필요 → 영상 입증 대상(코드 경로는 존재)</td></tr>
+    <tr><td>R-15 성능 임계값·측정</td><td><span class="pill p-na">확인 불가</span></td><td>기준값 X 미확정 + LLM 클러스터에서의 실측 로그 미첨부. 계측 코드만 존재</td></tr>
+    <tr><td>R-16 외부 트래픽 부재(완전 입증)</td><td><span class="pill p-part">부분 확인</span></td><td>엔드포인트가 localhost/사설 LAN만 지시함은 <b>테스트로 확인</b>. 다만 런타임 외부 트래픽 완전 부재는 네트워크 캡처 로그로 최종 입증 필요</td></tr>
+    <tr><td>backend 전체 기동(TTS/STT)</td><td><span class="pill p-na">확인 불가</span></td><td>MeloTTS·OpenVoiceV2·faster-whisper 대용량 모델 + mecab 패치 필요, 실환경 미재현(HTTP 라우팅은 테스트로 검증됨)</td></tr>
+    <tr><td>PR/코드리뷰 이력</td><td><span class="pill p-na">확인 불가</span></td><td>로컬 Git만으로 GitHub PR·리뷰 승인 메타데이터 확인 불가(머지·브랜치 흔적은 확인)</td></tr>
+    <tr><td>팀원 4인 참여</td><td><span class="pill p-na">확인 불가</span></td><td>Git 저자는 2인만 식별. 나머지 2인 참여는 저장소 밖 근거 필요(추측하지 않음)</td></tr>
+  </table>
+  <div class="note">
+    <b>주관 항목 위임(3장·8장 준수):</b> 기술 난이도·아이디어 창의성·발표 전달력·사업 발전 가능성은 본 리포트에서 판단하지 않았습니다. 비기능 충족 여부의 최종 판정은 §8 폼으로 평가자에게 위임합니다.
+  </div>
+</section>
+
+<div class="foot">
+  자동 생성 — 프로젝트 평가 Agent v1.0 · 분석 일시 2026-07-01 · 대상: LG 부트캠프 13기 A반 2팀 「보스 베이비」<br>
+  모든 자동 판정에는 근거(파일경로·커밋·테스트 로그·타임스탬프)가 첨부되었으며, 확인 불가 항목은 사유와 함께 명시했습니다.
+</div>
+
+</div>
+</body>
+</html>
