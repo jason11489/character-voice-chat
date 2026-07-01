@@ -60,16 +60,20 @@ sh src/program_backend/fetch-models.sh
 
 기본 음색 레퍼런스: `src/program_backend/voice/티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3`
 
-### 1-3. 실행
+### 1-3. 실행 (단일 명령)
 
-프론트를 빌드(§2-2)한 뒤, 한 프로세스가 STT·TTS·UI 를 `:8080` 에서 서빙합니다:
+**한 명령**으로 프론트 빌드 + STT·TTS·UI 통합 서버 기동까지 끝납니다.
+`dist/` 가 없으면 자동으로 `npm run build` 를 먼저 수행합니다:
 
 ```bash
-./run-tts.sh                 # 기본: melo 백엔드, 포트 8080, 프론트 dist 서빙
-./run-tts.sh --profile laptop   # 맥북: STT small 모델 + 전체 코어
+./run-tts.sh                     # 기본(pi): dist 없으면 자동 빌드 후 :8080 기동
+./run-tts.sh --profile laptop    # 맥북: STT small 모델 + 전체 코어
+./run-tts.sh --profile laptop --build   # UI 코드 변경 시 강제 재빌드
 ```
 
-`run-tts.sh` 는 내부적으로 다음을 실행합니다:
+접속: `http://localhost:8080/`
+
+`run-tts.sh` 는 내부적으로 (필요 시 빌드 후) 다음을 실행합니다:
 
 ```bash
 src/program_backend/venv/bin/python src/program_backend/macos-tts-server.py \
@@ -116,9 +120,12 @@ VITE_PI_LED_BASE=http://<LED_IP>:5000     # LED 라즈베리파이 주소
 ### 2-2. 빌드(배포) / 개발
 
 ```bash
-npm run build       # 배포용: dist/ 생성 → backend 가 서빙(§1-3)
+npm run build       # 배포용: dist/ 수동 생성 (통합 실행은 ./run-tts.sh 가 자동 처리 → §1-3)
 npm run dev         # 개발용: http://localhost:5173 (backend 와 별도 기동)
 ```
+
+> 통합 배포(§1-3)에서는 `./run-tts.sh` 가 빌드를 자동으로 하므로 이 단계는 생략해도 됩니다.
+> UI 코드를 고쳐 재빌드가 필요할 때만 `./run-tts.sh --build` 를 쓰세요.
 
 ---
 
@@ -189,9 +196,8 @@ sudo nice -n -20 ./dllama-api \
 
 1. (별도 노드) distributed-llama 클러스터 기동 → `:9999`
 2. (별도 노드) LED 라즈베리파이 `led_bridge` / LED 서버 기동 → `:5000`
-3. frontend 빌드 (`npm run build`)
-4. backend 기동 (`./run-tts.sh`) → `http://<HOST>:8080/`
-5. `.env` 의 `VITE_PI_API_BASE`(LLM), `VITE_PI_LED_BASE`(LED) 가 위 노드를 가리키는지 확인
+3. `.env` 의 `VITE_PI_API_BASE`(LLM), `VITE_PI_LED_BASE`(LED) 가 위 노드를 가리키는지 확인
+4. **backend 기동 (`./run-tts.sh`) → `http://<HOST>:8080/`** — 프론트 빌드+통합 서빙을 한 번에 처리
 
 ---
 
