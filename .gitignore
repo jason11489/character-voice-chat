@@ -1,16 +1,20 @@
 # Python venv (MeloTTS, torch 등 — 수 GB, 재설치로 복원)
-tts-server/venv/
+src/program_backend/venv/
 .venv/
 
 # OpenVoiceV2 (클론 repo + 체크포인트 — 재다운로드로 복원)
-tts-server/openvoice-src/
-tts-server/checkpoints_v2/
-tts-server/poc_out/
+src/program_backend/openvoice-src/
+src/program_backend/checkpoints_v2/
+src/program_backend/poc_out/
 
 # Python 캐시
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
+
+# Vitest/Vite 캐시
+.vite/
 
 # 합성된 오디오 임시 파일
 *.aiff
@@ -20,8 +24,8 @@ __pycache__/
 .DS_Store
 
 # Vite frontend
-virtual-avatar/node_modules/
-virtual-avatar/dist/
+src/program_frontend/node_modules/
+src/program_frontend/dist/
 
 # Removed local Pi server environments from earlier experiments
 pi-llm-server/

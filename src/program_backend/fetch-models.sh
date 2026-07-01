@@ -4,8 +4,8 @@
 #   - OpenVoice V2 체크포인트(checkpoints_v2): HuggingFace 미러
 #   - MeloTTS 한국어 HF 모델                  : 캐시 prefetch(서버가 오프라인 모드라 필수)
 #
-# 선행조건: tts-server/venv 생성 + requirements-melo.txt 설치(huggingface_hub 필요).
-# 사용법:  sh tts-server/fetch-models.sh
+# 선행조건: src/program_backend/venv 생성 + requirements-melo.txt 설치(huggingface_hub 필요).
+# 사용법:  sh src/program_backend/fetch-models.sh
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"      # .../tts-server
@@ -67,4 +67,4 @@ echo "[ok] HF 모델 캐시 준비됨"
 
 echo
 echo "완료. 실행:"
-echo "  venv/bin/python tts-server/macos-tts-server.py --backend melo --serve-dir virtual-avatar/dist --port 8080"
+echo "  ./run-tts.sh   (또는 src/program_backend/venv/bin/python src/program_backend/macos-tts-server.py --backend melo --serve-dir src/program_frontend/dist --port 8080)"

@@ -5,13 +5,15 @@
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PY="$HERE/tts-server/venv/bin/python"
+BACKEND="$HERE/src/program_backend"
+PY="$BACKEND/venv/bin/python"
 
 if [ ! -x "$PY" ]; then
-  echo "venv가 없습니다. README의 '최초 1회 설치 > TTS' 를 먼저 진행하세요." >&2
+  echo "venv가 없습니다. RUN.md의 '최초 1회 설치 > TTS' 를 먼저 진행하세요." >&2
   exit 1
 fi
 
 # 기본값(melo, :8080). 추가/덮어쓰기 인자는 그대로 전달.
-exec "$PY" "$HERE/tts-server/macos-tts-server.py" \
-  --backend melo --port 8080 --serve-dir "$HERE" "$@"
+# --serve-dir: 통합 배포 시 프론트엔드 빌드 산출물(index.html)을 같은 서버에서 서빙.
+exec "$PY" "$BACKEND/macos-tts-server.py" \
+  --backend melo --port 8080 --serve-dir "$HERE/src/program_frontend/dist" "$@"

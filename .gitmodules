@@ -1,4 +1,4 @@
 [submodule "distributed-llama"]
-	path = distributed-llama
+	path = src/program_backend/distributed-llama
 	url = https://github.com/jason11489/distributed-llama.git
 	branch = character-voice-chat-integration

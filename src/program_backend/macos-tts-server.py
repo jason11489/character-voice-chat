@@ -46,7 +46,6 @@ PROFILES = {
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MELO_VOICE = os.path.join(
     HERE,
-    "..",
     "voice",
     "티모 2024 한국어 음성 (Teemo 2024 Korean Voice).mp3",
 )
@@ -476,7 +475,7 @@ def main():
     p.add_argument("--voice-convert", default=DEFAULT_MELO_VOICE,
                    help="melo 백엔드 OpenVoiceV2 음색 변환 기본 레퍼런스 "
                         "(기본: 티모 한국어 음성. UI 에서 음성 미선택 시 사용)")
-    p.add_argument("--voice-dir", default=os.path.join(HERE, "..", "voice"),
+    p.add_argument("--voice-dir", default=os.path.join(HERE, "voice"),
                    help="melo 백엔드 음색 변환용 캐릭터 음성(mp3/wav) 디렉터리. "
                         "여기 파일들이 UI 음성 드롭다운에 뜬다")
     p.add_argument("--serve-dir", default=None,
