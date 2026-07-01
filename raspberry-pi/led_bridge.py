@@ -2,7 +2,7 @@ import requests
 import json
 
 # 라즈베리파이 IP (수정 필요)
-LED_PI_URL = "http://10.56.131.21:5000/led"
+LED_PI_URL = "http://10.56.131.40:5000/led"
 
 # LED 연결된 6개만 사용
 DEVICE_TO_LED = {

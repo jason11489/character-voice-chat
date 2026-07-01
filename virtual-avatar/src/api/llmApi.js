@@ -473,9 +473,9 @@ export function getLlmModel() {
 const DEVICE_TO_LED = {
   "TV": "A",
   "조명": "B",
-  "공기청정기": "C",
-  "냉장고 화면": "D",
-  "스타일러": "E",
+  "냉장고 화면": "C",
+  "스타일러": "D",
+  "공기청정기": "E",
   "정수기": "F",
 };
 
@@ -483,7 +483,7 @@ function postLedCommands(commands) {
   if (!commands.length) return;
   const url = isProxiedHttps()
     ? "/led"
-    : `${getEnvBase("VITE_PI_LED_BASE", "http://10.56.131.21:5000")}/led`;
+    : `${getEnvBase("VITE_PI_LED_BASE", "http://10.56.131.40:5000")}/led`;
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const llmTarget = env.VITE_PI_API_BASE || "http://localhost:8000";
   const ttsTarget = env.VITE_TTS_API_BASE || "http://localhost:8080";
-  const ledTarget = env.VITE_PI_LED_BASE || "http://10.56.131.21:5000";
+  const ledTarget = env.VITE_PI_LED_BASE || "http://10.56.131.40:5000";
   const proxy = Object.fromEntries(
     [
       ["/v1", llmTarget],
