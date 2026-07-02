@@ -1,65 +1,65 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="27" failures="0" errors="0" time="0.422">
-    <testsuite name="tests/program_frontend/llmApi.test.js" timestamp="2026-07-01T10:53:12.634Z" hostname="gimseung-uui-MacBookAir.local" tests="8" failures="0" errors="0" skipped="0" time="0.027768291">
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 허용 가전만 남기고 필드 길이를 제한한다" time="0.019974833">
+<testsuites name="vitest tests" tests="27" failures="0" errors="0" time="0.624">
+    <testsuite name="tests/program_frontend/llmApi.test.js" timestamp="2026-07-02T01:04:09.971Z" hostname="gimseung-uui-MacBookAir.local" tests="8" failures="0" errors="0" skipped="0" time="0.028158334">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 허용 가전만 남기고 필드 길이를 제한한다" time="0.020890833">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 코드블록/think 태그로 감싼 JSON도 파싱한다" time="0.001163917">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; 코드블록/think 태그로 감싼 JSON도 파싱한다" time="0.001200375">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; JSON 이 아니면 텍스트 폴백으로 응답한다" time="0.000965334">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; JSON 이 아니면 텍스트 폴백으로 응답한다" time="0.00085875">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; R-02: OpenAI 호환 엔드포인트로 POST 한다" time="0.00150075">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-03 캐릭터 응답 스키마 검증/정규화 (askPiLLM) &gt; R-02: OpenAI 호환 엔드포인트로 POST 한다" time="0.000783541">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 매핑된 가전만 LED on/off 명령으로 변환해 전송한다" time="0.001288792">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 매핑된 가전만 LED on/off 명령으로 변환해 전송한다" time="0.001123708">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 제어할 가전이 없으면 요청하지 않는다" time="0.000720583">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; 제어할 가전이 없으면 요청하지 않는다" time="0.000562125">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; turnOffAllLeds 는 6개 LED 를 모두 off 로 보낸다" time="0.000906541">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-07/R-12 가전 → LED 제어 매핑 &gt; turnOffAllLeds 는 6개 LED 를 모두 off 로 보낸다" time="0.001079875">
         </testcase>
-        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-02 설정 기본값 (엔드포인트/모델) &gt; 모델/베이스 URL 기본값을 반환한다" time="0.000615875">
-        </testcase>
-    </testsuite>
-    <testsuite name="tests/program_frontend/privacy.test.js" timestamp="2026-07-01T10:53:12.636Z" hostname="gimseung-uui-MacBookAir.local" tests="4" failures="0" errors="0" skipped="0" time="0.005634583">
-        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; LLM(base) 기본 주소가 로컬/LAN 대역이다" time="0.002164208">
-        </testcase>
-        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; TTS 기본 주소가 로컬/LAN 대역이다" time="0.001164667">
-        </testcase>
-        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; 어떤 엔드포인트도 공개 인터넷 도메인(.com/.net 등)을 쓰지 않는다" time="0.000956708">
-        </testcase>
-        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 가전 제어(LED)도 사설 LAN 으로만 전송된다 &gt; sendDeviceCommands 는 사설 LAN LED 서버로 POST 한다" time="0.000819291">
+        <testcase classname="tests/program_frontend/llmApi.test.js" name="R-02 설정 기본값 (엔드포인트/모델) &gt; 모델/베이스 URL 기본값을 반환한다" time="0.000988875">
         </testcase>
     </testsuite>
-    <testsuite name="tests/program_frontend/scenario.test.js" timestamp="2026-07-01T10:53:12.636Z" hostname="gimseung-uui-MacBookAir.local" tests="10" failures="0" errors="0" skipped="0" time="0.013607792">
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-08 복수 개인 데이터 종합 상황 판단 &gt; 행동 시나리오는 위치·결제/시청·날씨 등 3종 이상 개인 데이터를 종합한다" time="0.000683167">
+    <testsuite name="tests/program_frontend/privacy.test.js" timestamp="2026-07-02T01:04:09.972Z" hostname="gimseung-uui-MacBookAir.local" tests="4" failures="0" errors="0" skipped="0" time="0.024638417">
+        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; LLM(base) 기본 주소가 로컬/LAN 대역이다" time="0.021056875">
         </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-08 복수 개인 데이터 종합 상황 판단 &gt; 회식 시나리오는 결제·시청·위치·날씨를 모두 종합한다" time="0.000218791">
+        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; TTS 기본 주소가 로컬/LAN 대역이다" time="0.001125708">
         </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 컨텍스트에 따른 차등 솔루션 &gt; 서로 다른 컨텍스트는 서로 다른 가전 솔루션을 만든다" time="0.000394375">
+        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 추론·음성 엔드포인트가 로컬/사설 LAN 만 가리킨다 &gt; 어떤 엔드포인트도 공개 인터넷 도메인(.com/.net 등)을 쓰지 않는다" time="0.000822">
         </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 컨텍스트에 따른 차등 솔루션 &gt; 재택 발표 컨텍스트는 저소음 지향 제어를 선택한다" time="0.000349792">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 같은 발화라도 컨텍스트가 다르면 다른 요청을 보낸다 &gt; 동일 발화 &apos;조용히 해줘&apos; + 두 컨텍스트 → 요청 본문이 서로 다르다" time="0.009800458">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-10 시나리오①(회식 후 귀가) 정의 순서 &gt; 스타일러 → 공기청정기(제습) → TV(드라마) → 스피커(플레이리스트) 순으로 정의된다" time="0.000127084">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-11 시나리오②(운동 후 귀가) 정의 동작 &gt; 냉장고 레시피·회복 플레이리스트·TV 스트레칭이 제공된다" time="0.000060833">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-13 가전 제어 결과가 시각화 가능한 형태로 구성된다 &gt; 모든 솔루션 device 는 name·state·status(active|idle) 렌더 필드를 갖는다" time="0.000806042">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-13 가전 제어 결과가 시각화 가능한 형태로 구성된다 &gt; 행동 시나리오는 화면에 표시할 솔루션 제목·요약을 제공한다" time="0.000157208">
-        </testcase>
-        <testcase classname="tests/program_frontend/scenario.test.js" name="R-14 (옵션) 시청 기록을 상황 판단 컨텍스트로 활용 &gt; 시청 기록(viewing) 데이터가 존재하고 하나 이상 시나리오에서 사용된다" time="0.0000745">
+        <testcase classname="tests/program_frontend/privacy.test.js" name="R-16 가전 제어(LED)도 사설 LAN 으로만 전송된다 &gt; sendDeviceCommands 는 사설 LAN LED 서버로 POST 한다" time="0.001080583">
         </testcase>
     </testsuite>
-    <testsuite name="tests/program_frontend/ttsApi.test.js" timestamp="2026-07-01T10:53:12.637Z" hostname="gimseung-uui-MacBookAir.local" tests="5" failures="0" errors="0" skipped="0" time="0.013900916">
-        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; text/rate/voice/prosody 를 쿼리로 구성하고 blob 을 반환한다" time="0.005909125">
+    <testsuite name="tests/program_frontend/scenario.test.js" timestamp="2026-07-02T01:04:09.972Z" hostname="gimseung-uui-MacBookAir.local" tests="10" failures="0" errors="0" skipped="0" time="0.015988959">
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-08 복수 개인 데이터 종합 상황 판단 &gt; 행동 시나리오는 위치·결제/시청·날씨 등 3종 이상 개인 데이터를 종합한다" time="0.000719708">
         </testcase>
-        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 같은 요청은 캐시해서 한 번만 합성한다" time="0.001268625">
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-08 복수 개인 데이터 종합 상황 판단 &gt; 회식 시나리오는 결제·시청·위치·날씨를 모두 종합한다" time="0.00015175">
         </testcase>
-        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 실패하면 에러를 던지고 캐시에 남기지 않는다" time="0.001524333">
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 컨텍스트에 따른 차등 솔루션 &gt; 서로 다른 컨텍스트는 서로 다른 가전 솔루션을 만든다" time="0.000374166">
         </testcase>
-        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSHealth 는 /health JSON 을 반환한다" time="0.001586125">
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 컨텍스트에 따른 차등 솔루션 &gt; 재택 발표 컨텍스트는 저소음 지향 제어를 선택한다" time="0.000343958">
         </testcase>
-        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSVoices 는 voices 배열을 반환한다" time="0.002982667">
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-09 같은 발화라도 컨텍스트가 다르면 다른 요청을 보낸다 &gt; 동일 발화 &apos;조용히 해줘&apos; + 두 컨텍스트 → 요청 본문이 서로 다르다" time="0.012274375">
+        </testcase>
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-10 시나리오①(회식 후 귀가) 정의 순서 &gt; 스타일러 → 공기청정기(제습) → TV(드라마) → 스피커(플레이리스트) 순으로 정의된다" time="0.000151458">
+        </testcase>
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-11 시나리오②(운동 후 귀가) 정의 동작 &gt; 냉장고 레시피·회복 플레이리스트·TV 스트레칭이 제공된다" time="0.000061709">
+        </testcase>
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-13 가전 제어 결과가 시각화 가능한 형태로 구성된다 &gt; 모든 솔루션 device 는 name·state·status(active|idle) 렌더 필드를 갖는다" time="0.000818791">
+        </testcase>
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-13 가전 제어 결과가 시각화 가능한 형태로 구성된다 &gt; 행동 시나리오는 화면에 표시할 솔루션 제목·요약을 제공한다" time="0.000153334">
+        </testcase>
+        <testcase classname="tests/program_frontend/scenario.test.js" name="R-14 (옵션) 시청 기록을 상황 판단 컨텍스트로 활용 &gt; 시청 기록(viewing) 데이터가 존재하고 하나 이상 시나리오에서 사용된다" time="0.000073084">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/program_frontend/ttsApi.test.js" timestamp="2026-07-02T01:04:09.973Z" hostname="gimseung-uui-MacBookAir.local" tests="5" failures="0" errors="0" skipped="0" time="0.026381334">
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; text/rate/voice/prosody 를 쿼리로 구성하고 blob 을 반환한다" time="0.020073125">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 같은 요청은 캐시해서 한 번만 합성한다" time="0.001374875">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 음성 합성 클라이언트 &gt; 실패하면 에러를 던지고 캐시에 남기지 않는다" time="0.001792042">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSHealth 는 /health JSON 을 반환한다" time="0.001362334">
+        </testcase>
+        <testcase classname="tests/program_frontend/ttsApi.test.js" name="R-05 상태 조회 클라이언트 &gt; getTTSVoices 는 voices 배열을 반환한다" time="0.001134083">
         </testcase>
     </testsuite>
 </testsuites>
